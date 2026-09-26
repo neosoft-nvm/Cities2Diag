@@ -112,6 +112,19 @@ namespace PerformanceDetective
             sb.AppendLine($"- Frame time: average {F(st.FrameMsAvg, 1)} ms (≈ {F(1000 / Math.Max(1, st.FrameMsAvg), 0)} FPS), 95th percentile of per-sample worst {F(st.FrameMsP95, 1)} ms");
             sb.AppendLine();
 
+            var sources = Mod.Detective?.Sources;
+            if (sources != null && sources.Top.Count > 0)
+            {
+                double totalWork = 0;
+                foreach (var src in sources.Top) totalWork += Math.Max(0, src.SessionWork);
+                sb.AppendLine("## Where pathfinding work comes from (this session, game's own statistics)");
+                sb.AppendLine("| Source | Queries | Share of search work |");
+                sb.AppendLine("|---|---|---|");
+                foreach (var src in sources.Top.OrderByDescending(x => x.SessionWork).Take(12))
+                    sb.AppendLine($"| {src.Name} | {src.SessionQueries.ToString("N0", Inv)} | {Pct(totalWork > 0 ? src.SessionWork / totalWork : double.NaN)} |");
+                sb.AppendLine();
+            }
+
             sb.AppendLine("## Observations (facts from the data, not conclusions)");
             foreach (var o in Observations(sys, st)) sb.AppendLine("- " + o);
             sb.AppendLine();

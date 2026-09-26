@@ -146,6 +146,21 @@ namespace PerformanceDetective.UI
                 j.Name("lastStall").BeginObject().Prop("seconds", last.DurationSec, 1).Prop("minPct", last.MinRatio * 100, 0)
                  .Prop("agoSeconds", d.SessionTime - last.EndT, 0).Prop("catchUp", last.CatchUpSeconds, 1).EndObject();
 
+            // Where pathfinding work comes from (last minute)
+            if (d != null)
+            {
+                j.Prop("sourcesPerMin", d.Sources.TotalPerMinute, 0);
+                j.Name("sources").BeginArray();
+                int shown = 0;
+                foreach (var src in d.Sources.Top)
+                {
+                    if (shown++ >= 8) break;
+                    j.BeginObject().Prop("name", src.Name).Prop("perMin", src.PerMinute, 0).Prop("workPct", src.WorkShare * 100, 1)
+                     .Prop("successPct", src.SuccessRate * 100, 0).Prop("tip", src.Tip).EndObject();
+                }
+                j.EndArray();
+            }
+
             // What the controller is doing
             j.Name("targets").BeginArray();
             if (m != null)

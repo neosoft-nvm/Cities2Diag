@@ -66,6 +66,7 @@ export const DetectivePanel = () => {
           ) : (
             <>
               <SpeedSection s={s} />
+              <SourcesSection s={s} />
               <GraphSection s={s} />
               <MetricsSection s={s} />
               <ControllerSection s={s} />
@@ -106,6 +107,36 @@ const SpeedSection = ({ s }: { s: DetectiveState }) => {
           {" "}{fmt(s.lastStall.agoSeconds)} s ago{s.lastStall.catchUp > 0 ? `, then ${fmt(s.lastStall.catchUp, 1)} s of catch-up` : ""}.
           {" "}Stalls this session: {s.stalls}.
         </div>
+      )}
+    </div>
+  );
+};
+
+const SourcesSection = ({ s }: { s: DetectiveState }) => {
+  const list = (s.sources ?? []).filter(x => x.workPct > 0.5 || x.perMin > 0);
+  if (list.length === 0) return null;
+  const top = list[0];
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionTitle}>Where pathfinding work comes from (last minute)</div>
+      <div className={styles.note} style={{ marginTop: 0, marginBottom: "4rem" }}>
+        {fmt(s.sourcesPerMin)} route searches per minute. Bars show each source's share of the search work.
+      </div>
+      {list.slice(0, 6).map(x => (
+        <div key={x.name} className={styles.target}>
+          <div className={styles.targetHead}>
+            <span>{x.name}</span>
+            <span className={styles.metricLabel}>
+              {fmt(x.workPct)}% · {fmt(x.perMin)}/min{x.successPct != null && x.successPct < 90 ? ` · ${fmt(x.successPct)}% found a route` : ""}
+            </span>
+          </div>
+          <div className={styles.targetBar}>
+            <div className={styles.targetFill} style={{ width: `${Math.min(100, x.workPct)}%`, backgroundColor: "#4aa3ff" }} />
+          </div>
+        </div>
+      ))}
+      {top.tip && top.workPct >= 15 && (
+        <div className={styles.note}><b>Community tip for "{top.name}":</b> {top.tip}</div>
       )}
     </div>
   );

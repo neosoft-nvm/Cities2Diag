@@ -57,6 +57,8 @@ export interface DetectiveState {
   stalls: number;
   captures: number;
   lastStall?: { seconds: number; minPct: number; agoSeconds: number; catchUp: number };
+  sourcesPerMin?: number;
+  sources?: { name: string; perMin: number; workPct: number; successPct: number | null; tip: string | null }[];
   targets: Target[];
   unavailable: string[];
   history?: { speed: (number | null)[]; fps: (number | null)[]; backlog: (number | null)[]; quality: (number | null)[]; stall: boolean[] };

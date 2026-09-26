@@ -72,6 +72,10 @@ namespace PerformanceDetective
         public static string RootDirectory => Path.Combine(Application.persistentDataPath, "ModsData", "PerformanceDetective");
         public string SessionOrLastDirectory => m_SessionDir ?? m_LastSessionDir;
 
+        /// <summary>Which game systems generate pathfinding work (read-only statistics from the game).</summary>
+        public readonly PathfindSources Sources = new PathfindSources();
+        private double m_LastSourcesT = -10;
+
         // Read by the UI system (main thread).
         public bool InSession => m_InSession;
         public Sample LastSample => m_Samples.Count > 0 ? m_Samples[m_Samples.Count - 1] : null;
@@ -158,6 +162,11 @@ namespace PerformanceDetective
             float stepSeconds = m_Simulation.frameDuration;
             if (stepSeconds > 0) s.StepMs = stepSeconds * 1000.0;
             MeasurePathfinding(s, frameIndex);
+            if (!loading && s.T - m_LastSourcesT >= 2)
+            {
+                m_LastSourcesT = s.T;
+                Sources.Update(m_PathfindResults, s.T);
+            }
 
             MeasureResources(s, dt);
 
@@ -371,6 +380,8 @@ namespace PerformanceDetective
             m_LastPopulationT = -1000;
             m_SessionDir = Path.Combine(RootDirectory, "Sessions", DateTime.Now.ToString("yyyyMMdd_HHmmss", Inv));
             m_System = TakeSystemSnapshot();
+            Sources.Reset();
+            m_LastSourcesT = -10;
             Mod.Manager?.OnSessionStart();
             m_Writer.Write(Path.Combine(m_SessionDir, "samples.csv"),
                 "utc,t_s,interval_ms,loading,selected_speed,smooth_speed,ticks_per_s,ratio,abs_speed,steps_per_frame,step_ms," +
