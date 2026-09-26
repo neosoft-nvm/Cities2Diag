@@ -37,9 +37,12 @@ public sealed class DetectionSettings
         new() { Name = "GPU load drop", Metric = "gpu_util", Direction = "Below", Delta = 30 },
         new() { Name = "Frame time rise", Metric = "frametime_avg_ms", Direction = "Above", Factor = 1.5, Delta = 5 },
         new() { Name = "Game main thread saturated", Metric = "main_thread_pct", Direction = "Above", Absolute = 95, Delta = 15 },
-        new() { Name = "Game CPU rise", Metric = "game_cores_busy", Direction = "Above", Delta = 1.0 },
+        // Context only: after the game was paused/idle, the baseline is low and ordinary play looks like a "rise"
+        // (produced most false and 120 s-long stalls in the first real session).
+        new() { Name = "Game CPU rise", Metric = "game_cores_busy", Direction = "Above", Delta = 1.0, Role = "Context" },
         // Paging comes in bursts on a busy PC; as a trigger it creates/extends false stalls. Recorded as context instead.
         new() { Name = "Hard page faults", Metric = "hard_faults", Direction = "Above", Absolute = 1000, Role = "Context" },
+        new() { Name = "Other processes CPU rise", Metric = "other_cpu_cores", Direction = "Above", Delta = 1.0, Role = "Context" },
         new() { Name = "Game not responding", Metric = "hung", Direction = "Above", Absolute = 0.5 },
         new() { Name = "Monitor itself delayed", Metric = "interval_ms", Direction = "Above", Factor = 2.0 },
     };

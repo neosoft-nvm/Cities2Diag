@@ -13,7 +13,8 @@ internal sealed class EventWriter
     {
         "fps", "frametime_avg_ms", "frametime_max_ms", "frame_cpu_busy_ms", "frame_gpu_busy_ms",
         "gpu_util", "gpu_3d_game", "cpu_busy", "max_core_busy", "cpu_freq_mhz", "game_cores_busy", "main_thread_pct",
-        "top_thread_pct", "ram_used_mb", "commit_used_mb", "hard_faults", "game_private_mb", "vram_used_mb",
+        "top_thread_pct", "threads_over_90", "other_cpu_cores", "ram_used_mb", "commit_used_mb", "hard_faults", "game_hard_faults",
+        "game_private_mb", "vram_used_mb",
         "game_io_read_mb_s", "gpu_clock_mhz", "interval_ms",
     };
 
@@ -71,6 +72,12 @@ internal sealed class EventWriter
             record.Summary.Add(summary);
             if (Observation(m, summary) is string obs) record.Observations.Add(obs);
         }
+        record.OtherProcesses = OtherProcesses(samples, Period);
+        foreach (var p in record.OtherProcesses)
+        {
+            if (p.DuringCores - p.BeforeCores >= 0.5)
+                record.Observations.Add($"Other process {p.Name}: {p.BeforeCores:0.00} cores before → {p.DuringCores:0.00} during → {p.AfterCores:0.00} after");
+        }
         if (record.Observations.Count == 0)
             record.Observations.Add("No measured value changed notably between 'before' and 'during'.");
 
@@ -106,6 +113,40 @@ internal sealed class EventWriter
         }
         File.WriteAllText(Path.Combine(dir, record.Name + ".csv"), sb.ToString(), new UTF8Encoding(false));
         return (record, jsonPath);
+    }
+
+    /// <summary>
+    /// Average CPU of each non-game process per period, over the samples where processes were measured
+    /// (once per second). A process missing from a measured sample's top list counts as ~0 there.
+    /// </summary>
+    private static List<ProcessUse> OtherProcesses(IReadOnlyList<Sample> samples, Func<Sample, string> period)
+    {
+        var sums = new Dictionary<string, double[]>();
+        var measured = new Dictionary<string, int> { ["before"] = 0, ["during"] = 0, ["after"] = 0 };
+        foreach (var s in samples)
+        {
+            if (s.OtherTopCpu == null) continue;
+            string p = period(s);
+            measured[p]++;
+            int idx = p == "before" ? 0 : p == "during" ? 1 : 2;
+            foreach (var (name, cores) in s.OtherTopCpu)
+            {
+                if (!sums.TryGetValue(name, out var arr)) sums[name] = arr = new double[3];
+                arr[idx] += cores;
+            }
+        }
+        double Avg(double sum, string p) => measured[p] > 0 ? Math.Round(sum / measured[p], 3) : 0;
+        return sums
+            .Select(kv => new ProcessUse
+            {
+                Name = kv.Key,
+                BeforeCores = Avg(kv.Value[0], "before"),
+                DuringCores = Avg(kv.Value[1], "during"),
+                AfterCores = Avg(kv.Value[2], "after"),
+            })
+            .OrderByDescending(p => Math.Max(p.DuringCores, p.BeforeCores))
+            .Take(8)
+            .ToList();
     }
 
     private static double? Mean(IReadOnlyList<Sample> samples, Metric m, Func<Sample, bool> include)

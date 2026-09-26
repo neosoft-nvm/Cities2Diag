@@ -29,6 +29,8 @@ public static class Metrics
         new("main_thread_pct", "Game main thread", "%", s => s.MainThreadPct, 15, 0.15),
         new("top_thread_pct", "Game busiest thread", "%", s => s.TopThreadPct, 15, 0.15),
         new("threads_over_90", "Game threads ≥ 90%", "", s => s.ThreadsOver90, 1, 0.5),
+        new("other_cpu_cores", "Other processes CPU", "cores", s => s.OtherCpuCores, 0.5, 0.3),
+        new("game_hard_faults", "Game hard faults", "/s", s => s.GameHardFaultsPerSec, 100, 1.0),
         new("ram_used_mb", "RAM used", "MB", s => s.RamTotalMb - s.RamAvailMb, 300, 0.02),
         new("commit_used_mb", "Commit", "MB", s => s.CommitUsedMb, 300, 0.02),
         new("hard_faults", "Hard faults (pages in/s)", "/s", s => s.HardFaultPagesInPerSec, 200, 1.0),

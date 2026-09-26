@@ -48,6 +48,7 @@ public sealed class Sampler : IDisposable
     private NvmlCollector? _nvml;
     private ProcessCollector? _process;
     private PresentMonSource? _presentMon;
+    private readonly OtherProcessCollector _others = new();
     private SessionLogger? _logger;
     private StallDetector? _detector;
     private EventWriter? _events;
@@ -170,6 +171,7 @@ public sealed class Sampler : IDisposable
                 TrackGameProcess();
                 _process!.Collect(s, (t - last) / 1000.0);
                 _system!.Collect(s, s.GameRunning ? s.Pid : null);
+                _others.Collect(s, s.GameRunning ? s.Pid : null);
                 _nvml?.Collect(s);
                 if (_pendingMarkers.TryDequeue(out var marker))
                 {

@@ -38,6 +38,11 @@ internal static class CsvSchema
             new("game_vram_dedicated_mb", s => F(s.ProcVramDedicatedMb)),
             new("game_vram_shared_mb", s => F(s.ProcVramSharedMb)),
 
+            new("game_hard_faults_per_s", s => F(s.GameHardFaultsPerSec)),
+            new("other_cpu_cores", s => F(s.OtherCpuCores)),
+            new("other_top_cpu", s => Text(s.OtherTopCpu == null ? null : string.Join("; ", s.OtherTopCpu.Select(x => $"{x.Name} {x.Cores.ToString("0.00", CultureInfo.InvariantCulture)}")))),
+            new("other_top_hard_faults", s => Text(s.OtherTopHardFaults == null ? null : string.Join("; ", s.OtherTopHardFaults.Select(x => $"{x.Name} {x.PerSec.ToString("0", CultureInfo.InvariantCulture)}")))),
+
             new("cpu_busy_pct", s => F(s.CpuBusyPct)),
             new("cpu_utility_pct", s => F(s.CpuUtilityPct)),
             new("cpu_freq_mhz", s => F(s.CpuFreqMhz)),

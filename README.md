@@ -37,7 +37,7 @@ around that moment.
 ## Output
 
 ```
-Documents\CS2StallInvestigator\
+%LOCALAPPDATA%\CS2StallInvestigator\
   settings.json                        editable settings (created on first run)
   Sessions\Session_20260926_201500\
     samples.csv                        one row per sample (default 5 per second)
@@ -69,13 +69,16 @@ A rule compares one metric with its **baseline** — the median over the last 60
 | GPU load drop | GPU load ≤ baseline − 30 points | trigger |
 | Frame time rise | frame time ≥ 1.5 × baseline and ≥ baseline + 5 ms | trigger |
 | Game main thread saturated | main thread ≥ 95 % and ≥ baseline + 15 | trigger |
-| Game CPU rise | game CPU ≥ baseline + 1 core | trigger |
+| Game CPU rise | game CPU ≥ baseline + 1 core | context |
 | Game not responding | Windows reports the window hung | trigger |
 | Monitor itself delayed | sample interval ≥ 2 × baseline (system-wide hitch) | trigger |
 | Hard page faults | ≥ 1000 pages/s | context |
+| Other processes CPU rise | non-game processes ≥ baseline + 1 core | context |
 
-*Context* rules are recorded but never start or extend a stall (paging comes in bursts on a busy PC and
-produced false/overlong stalls in testing). Metric keys usable in rules are listed in `src/Cs2Monitor/Metrics.cs`.
+*Context* rules are recorded but never start or extend a stall. Paging comes in bursts on a busy PC, and game CPU
+looks like it "rises" after any pause, so as triggers both produced false or overlong stalls in the first real
+sessions. Metric keys usable in rules are listed in `src/Cs2Monitor/Metrics.cs`. Settings files from older versions
+are migrated automatically (`SettingsVersion`).
 
 These defaults are a starting point, not knowledge about CS2: **the first real sessions are for tuning them.**
 Each event records which rules fired, so false positives are easy to see.
@@ -100,6 +103,7 @@ Every value comes from a Windows or NVIDIA API; nothing is estimated.
 | Memory | RAM used/total, memory load, commit used/limit, pagefile %, hard-fault pages in/s, page faults/s | `GlobalMemoryStatusEx`, PDH `Memory`, `Paging File` |
 | Disk | read/write MB/s, queue length | PDH `PhysicalDisk(_Total)` |
 | NVIDIA GPU (each) | load %, memory-controller load %, VRAM used, temperature, core/memory clock, power, clock-limit reasons | NVML (`nvml.dll`, ships with the driver) |
+| Other processes (1/s) | total CPU of everything except the game; top 3 by CPU and by hard faults; game hard faults | `NtQuerySystemInformation` |
 | Monitor itself | actual interval between samples, collection cost | `Stopwatch` |
 
 `interval_ms` matters: if the monitor itself is delayed (e.g. by a system-wide hitch), the gap shows up there.
@@ -139,7 +143,9 @@ raise `SampleIntervalMs`.
 |---|---|---|
 | `ProcessName` | `Cities2` | process to attach to |
 | `SampleIntervalMs` | `200` | 5 samples/s (50–5000) |
-| `LogDirectory` | `Documents\CS2StallInvestigator\Sessions` | |
+| `LogDirectory` | `%LOCALAPPDATA%\CS2StallInvestigator\Sessions` | keep it out of OneDrive: syncing every write costs 2–3 cores for seconds |
+| `CaptureHotkey` | `Ctrl+Alt+M` | e.g. `Shift+F9`, `Pause`; uses a low-level keyboard hook, the key still reaches the game |
+| `CaptureSound` / `CaptureToast` | `true` | two-tone beep / small top-right notice on each capture |
 | `EnableGpuEngineCounters` | `true` | per-process GPU % and VRAM |
 | `EnableNvml` | `true` | NVIDIA hardware values |
 | `EnableThreadSampling` | `true` | main / busiest thread CPU |

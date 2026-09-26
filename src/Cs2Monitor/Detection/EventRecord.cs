@@ -28,7 +28,18 @@ public sealed class EventRecord
     public Dictionary<string, double> BaselinesAtDetection { get; set; } = new();
     public List<MetricSummary> Summary { get; set; } = new();
     public List<string> Observations { get; set; } = new();
+
+    /// <summary>Busiest non-game processes, average CPU (cores) before and during the event.</summary>
+    public List<ProcessUse> OtherProcesses { get; set; } = new();
     public Timeline Timeline { get; set; } = new();
+}
+
+public sealed class ProcessUse
+{
+    public string Name { get; set; } = "";
+    public double BeforeCores { get; set; }
+    public double DuringCores { get; set; }
+    public double AfterCores { get; set; }
 }
 
 public sealed class RuleHit

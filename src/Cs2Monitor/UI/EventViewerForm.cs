@@ -207,6 +207,13 @@ internal sealed class EventViewerForm : Form
         sb.AppendLine("Observations (measured changes, not conclusions):");
         foreach (var o in r.Observations) sb.AppendLine("  • " + o);
         sb.AppendLine();
+        if (r.OtherProcesses.Count > 0)
+        {
+            sb.AppendLine($"{"Other processes (CPU cores)",-34}{"Before",8}{"During",8}{"After",8}");
+            foreach (var p in r.OtherProcesses)
+                sb.AppendLine($"  {Trim(p.Name, 32),-32}{p.BeforeCores,8:0.00}{p.DuringCores,8:0.00}{p.AfterCores,8:0.00}");
+            sb.AppendLine();
+        }
         sb.AppendLine($"Classification: {r.Classification}");
         sb.AppendLine($"  {r.ClassificationNote}");
         sb.AppendLine();
@@ -214,6 +221,8 @@ internal sealed class EventViewerForm : Form
         sb.AppendLine("File:    " + path);
         return sb.ToString();
     }
+
+    private static string Trim(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
 
     private static string Cell(double? v, string unit) => v is double d ? EventWriter.Fmt(d, unit) : "—";
 

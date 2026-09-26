@@ -40,6 +40,12 @@ public sealed class Sample
     public double? ProcVramDedicatedMb;
     public double? ProcVramSharedMb;
 
+    // Other processes (measured once per second; null in between)
+    public double? OtherCpuCores;                                  // all processes except the game and Idle
+    public (string Name, double Cores)[]? OtherTopCpu;
+    public (string Name, double PerSec)[]? OtherTopHardFaults;
+    public double? GameHardFaultsPerSec;
+
     // System CPU
     public double? CpuBusyPct;      // % Processor Time (classic busy time, max 100)
     public double? CpuUtilityPct;   // % Processor Utility (Task Manager's value, frequency-scaled, can exceed 100)

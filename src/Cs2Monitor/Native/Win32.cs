@@ -104,6 +104,12 @@ internal static class Win32
     private const int SystemProcessInformation = 5;
     private const int STATUS_INFO_LENGTH_MISMATCH = unchecked((int)0xC0000004);
     // x64 layouts of SYSTEM_PROCESS_INFORMATION / SYSTEM_THREAD_INFORMATION
+    private const int ProcHardFaultCountOffset = 0x10;
+    private const int ProcCreateTimeOffset = 0x20;
+    private const int ProcUserTimeOffset = 0x28;
+    private const int ProcKernelTimeOffset = 0x30;
+    private const int ProcImageNameLengthOffset = 0x38;   // UNICODE_STRING.Length (bytes)
+    private const int ProcImageNameBufferOffset = 0x40;   // UNICODE_STRING.Buffer
     private const int ProcUniqueProcessIdOffset = 0x50;
     private const int ProcThreadsOffset = 0x100;
     private const int ThreadInfoSize = 0x50;
@@ -112,14 +118,12 @@ internal static class Win32
     private static IntPtr _sysInfoBuffer;
     private static int _sysInfoSize;
 
-    /// <summary>
-    /// Thread ids of one process via NtQuerySystemInformation (what Task Manager uses).
-    /// Toolhelp's Thread32Next is ~20x slower on a system with thousands of threads.
-    /// Not thread-safe: call from the sampler thread only.
-    /// </summary>
-    public static bool GetThreadIds(int pid, List<uint> into)
+    /// <summary>One entry of a process snapshot. Times are 100 ns units.</summary>
+    public readonly record struct ProcessEntry(int Pid, string Name, long CreateTime, long CpuTime, uint HardFaults);
+
+    /// <summary>Snapshot of all processes (what Task Manager uses). Not thread-safe: sampler thread only.</summary>
+    private static bool QuerySystemProcesses()
     {
-        into.Clear();
         if (_sysInfoBuffer == IntPtr.Zero)
         {
             _sysInfoSize = 1 << 20;
@@ -132,7 +136,42 @@ internal static class Win32
             _sysInfoSize = Math.Max(needed, _sysInfoSize * 2) + 65536;
             _sysInfoBuffer = Marshal.AllocHGlobal(_sysInfoSize);
         }
-        if (status < 0) return false;
+        return status >= 0;
+    }
+
+    /// <summary>CPU time and hard-fault counters of every process. Not thread-safe: sampler thread only.</summary>
+    public static bool GetProcesses(List<ProcessEntry> into)
+    {
+        into.Clear();
+        if (!QuerySystemProcesses()) return false;
+        int offset = 0;
+        while (true)
+        {
+            var b = _sysInfoBuffer;
+            int next = Marshal.ReadInt32(b, offset);
+            int pid = (int)Marshal.ReadInt64(b, offset + ProcUniqueProcessIdOffset);
+            int nameBytes = Marshal.ReadInt16(b, offset + ProcImageNameLengthOffset) & 0xFFFF;
+            IntPtr namePtr = Marshal.ReadIntPtr(b, offset + ProcImageNameBufferOffset);
+            string name = pid == 0 ? "Idle" : namePtr != IntPtr.Zero ? Marshal.PtrToStringUni(namePtr, nameBytes / 2) : "System";
+            into.Add(new ProcessEntry(
+                pid, name,
+                Marshal.ReadInt64(b, offset + ProcCreateTimeOffset),
+                Marshal.ReadInt64(b, offset + ProcUserTimeOffset) + Marshal.ReadInt64(b, offset + ProcKernelTimeOffset),
+                (uint)Marshal.ReadInt32(b, offset + ProcHardFaultCountOffset)));
+            if (next == 0) return true;
+            offset += next;
+        }
+    }
+
+    /// <summary>
+    /// Thread ids of one process via NtQuerySystemInformation.
+    /// Toolhelp's Thread32Next is ~20x slower on a system with thousands of threads.
+    /// Not thread-safe: call from the sampler thread only.
+    /// </summary>
+    public static bool GetThreadIds(int pid, List<uint> into)
+    {
+        into.Clear();
+        if (!QuerySystemProcesses()) return false;
 
         int offset = 0;
         while (true)

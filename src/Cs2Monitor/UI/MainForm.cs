@@ -7,10 +7,6 @@ namespace Cs2Monitor.UI;
 
 internal sealed class MainForm : Form
 {
-    private const int HotkeyId = 0xC520;
-    private const int WM_HOTKEY = 0x0312;
-    private const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_NOREPEAT = 0x4000;
-
     private readonly MonitorSettings _settings;
     private readonly Sampler _sampler;
     private readonly System.Windows.Forms.Timer _uiTimer = new();
@@ -27,7 +23,12 @@ internal sealed class MainForm : Form
     private EventViewerForm? _viewer;
     private int _captureCount;
     private int _seenEvents;
-    private bool _hotkeyRegistered;
+    private CaptureHotkey? _hotkey;
+    private readonly CaptureToast _toast = new();
+    private readonly Label _captureInfo = new();
+    private string _lastCapture = "none yet";
+    private Sample? _lastOther;
+    private readonly bool _logsInOneDrive;
     private string[] _gpuNames = Array.Empty<string>();
 
     private static readonly Color Bg = Color.FromArgb(18, 20, 23);
@@ -42,6 +43,7 @@ internal sealed class MainForm : Form
     {
         _settings = settings;
         _sampler = sampler;
+        _logsInOneDrive = MonitorSettings.IsInOneDrive(settings.LogDirectory);
 
         Text = "CS2 Stall Investigator — Monitor" + (Collectors.PresentMonSource.IsElevated ? " (administrator)" : "");
         BackColor = Bg;
@@ -116,15 +118,21 @@ internal sealed class MainForm : Form
         root.Controls.Add(_chart);
 
         var bottom = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 8, 0, 0), WrapContents = false };
-        var capture = MakeButton("Capture event  (Ctrl+Alt+M)", (_, _) => CaptureEvent("button"));
+        var capture = MakeButton($"Capture event  ({settings.CaptureHotkey})", (_, _) => CaptureEvent("button"));
         var events = MakeButton("Events…", (_, _) => OpenViewer(null));
         var open = MakeButton("Open logs folder", (_, _) => OpenLogs());
         var settingsBtn = MakeButton("Open settings file", (_, _) => OpenPath(MonitorSettings.FilePath));
+        _captureInfo.AutoSize = true;
+        _captureInfo.Font = new Font("Segoe UI Semibold", 10f);
+        _captureInfo.Margin = new Padding(12, 5, 0, 0);
         _footer.AutoSize = true;
         _footer.ForeColor = Dim;
         _footer.Margin = new Padding(12, 2, 0, 0);
-        bottom.Controls.AddRange(new Control[] { capture, events, open, settingsBtn, _footer });
+        bottom.Controls.AddRange(new Control[] { capture, events, open, settingsBtn, _captureInfo });
         root.Controls.Add(bottom);
+        root.RowCount++;
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.Controls.Add(_footer);
 
         SetValue("Population", "Phase 3 (CS2 mod)", Dim);
         SetValue("Simulation speed", "Phase 3 (CS2 mod)", Dim);
@@ -136,28 +144,42 @@ internal sealed class MainForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        _hotkeyRegistered = Win32.RegisterHotKey(Handle, HotkeyId, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, (uint)Keys.M);
+        // The hook callback arrives on this (UI) thread; defer the work so the callback returns immediately.
+        _hotkey = new CaptureHotkey(_settings.CaptureHotkey, () => BeginInvoke(() => CaptureEvent("hotkey")));
+        UpdateCaptureInfo();
         _uiTimer.Start();
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _uiTimer.Stop();
-        if (_hotkeyRegistered) Win32.UnregisterHotKey(Handle, HotkeyId);
+        _hotkey?.Dispose();
+        _toast.Dispose();
         base.OnFormClosed(e);
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == WM_HOTKEY && m.WParam == HotkeyId) CaptureEvent("hotkey");
-        base.WndProc(ref m);
     }
 
     private void CaptureEvent(string source)
     {
         _captureCount++;
         _sampler.Capture(source);
-        SystemSounds.Asterisk.Play(); // audible confirmation while the game has focus
+        _lastCapture = $"#{_captureCount} at {DateTime.Now:HH:mm:ss} ({source})";
+        if (_settings.CaptureSound) CaptureFeedback.Beep();
+        if (_settings.CaptureToast) _toast.ShowMessage($"● Captured #{_captureCount}");
+        UpdateCaptureInfo();
+    }
+
+    private void UpdateCaptureInfo()
+    {
+        if (_hotkey is { Active: true })
+        {
+            _captureInfo.Text = $"Key {_hotkey.Description}: active ✓   Last capture: {_lastCapture}";
+            _captureInfo.ForeColor = Good;
+        }
+        else
+        {
+            _captureInfo.Text = $"Key {_settings.CaptureHotkey}: NOT WORKING — {_hotkey?.Error ?? "not set up"}   Last capture: {_lastCapture}";
+            _captureInfo.ForeColor = Bad;
+        }
     }
 
     private void OpenViewer(string? selectPath)
@@ -250,13 +272,15 @@ internal sealed class MainForm : Form
         var pm = _sampler.FrameTimingStatus;
         SetValue("PresentMon", pm, pm.StartsWith("unavailable") ? Warn : pm == "running" ? Good : Dim);
 
+        if (s.OtherCpuCores != null) _lastOther = s; // measured once per second
         RefreshDetector();
         _cores.SetData(s.CoreBusyPct);
         RefreshChart(s);
 
         double rate = 1000.0 / Math.Max(1, s.IntervalMs);
         _footer.Text = $"{rate:0.0} samples/s · cost {s.CostMs:0.0} ms/sample · captures {_captureCount} · events saved {_sampler.EventCount}"
-            + (_hotkeyRegistered ? "" : " · hotkey unavailable (in use by another app)")
+            + (_lastOther?.OtherCpuCores is double oc ? $" · other processes {oc:0.00} cores" + (_lastOther.OtherTopCpu is { Length: > 0 } top ? $" (top: {top[0].Name} {top[0].Cores:0.00})" : "") : "")
+            + (_logsInOneDrive ? " · ⚠ LogDirectory is inside OneDrive: every log write triggers sync CPU load" : "")
             + (_sampler.RuleProblems.Count > 0 ? " · settings: " + string.Join("; ", _sampler.RuleProblems) : "")
             + (_sampler.Error != null ? " · " + _sampler.Error : "")
             + (_sampler.SessionDirectory != null ? "\nLogging to " + _sampler.SessionDirectory : "");
