@@ -38,6 +38,18 @@ namespace PerformanceDetective.Controller
             },
             new ControlTarget
             {
+                // Slice-based (UpdateFrame); requests stay queued as entities, so slower dispatch = longer waits, no losses.
+                Key = "taxi", Name = "Taxi dispatch", TypeName = "Game.Simulation.TaxiDispatchSystem", Priority = Priority.Low,
+                Effect = "Taxis are matched to waiting passengers less often: longer waits, far fewer route searches. (Players report big gains from fewer taxi depots — this does it without demolishing anything.)",
+            },
+            new ControlTarget
+            {
+                // Processes up to 1,280 homeless + 128 other households per run; unprocessed households simply wait.
+                Key = "homeSearch", Name = "Households looking for a home", TypeName = "Game.Simulation.HouseholdFindPropertySystem", Priority = Priority.MediumLow,
+                Effect = "Households (including homeless ones) search for a new home less often. Moving in and out happens more slowly.",
+            },
+            new ControlTarget
+            {
                 Key = "happiness", Name = "Citizen wellbeing", TypeName = "Game.Simulation.CitizenHappinessSystem", Priority = Priority.MediumLow,
                 Effect = "Happiness and health values update more slowly.",
             },

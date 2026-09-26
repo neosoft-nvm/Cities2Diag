@@ -85,6 +85,18 @@ namespace PerformanceDetective
         public string PerformancePreference => m_System?.PerformancePreference ?? "unknown";
         public double SessionTime => m_InSession ? m_Clock.Elapsed.TotalSeconds - m_SessionStart : 0;
 
+        /// <summary>Samples of the last <paramref name="seconds"/> seconds (oldest first).</summary>
+        public List<Sample> RecentSamples(double seconds)
+        {
+            var result = new List<Sample>();
+            if (m_Samples.Count == 0) return result;
+            double from = m_Samples[m_Samples.Count - 1].T - seconds;
+            int i = m_Samples.Count - 1;
+            while (i > 0 && m_Samples[i - 1].T >= from) i--;
+            for (; i < m_Samples.Count; i++) result.Add(m_Samples[i]);
+            return result;
+        }
+
         /// <summary>Capture button in the panel (same as the capture key).</summary>
         public void CaptureNow()
         {

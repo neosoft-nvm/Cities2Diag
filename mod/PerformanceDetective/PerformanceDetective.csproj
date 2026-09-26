@@ -6,7 +6,7 @@
     <Configurations>Debug;Release</Configurations>
     <AssemblyName>PerformanceDetective</AssemblyName>
     <RootNamespace>PerformanceDetective</RootNamespace>
-    <Version>0.2.2</Version>
+    <Version>0.3.0</Version>
     <!-- Mod information used when publishing to Paradox Mods -->
     <PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
   </PropertyGroup>

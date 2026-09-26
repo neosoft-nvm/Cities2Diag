@@ -32,6 +32,10 @@ namespace PerformanceDetective.Controller
         public const double CaptureSeconds = 60;
 
         public readonly SimulationController Controller = new SimulationController();
+        public readonly AutoTune Tune = new AutoTune();
+
+        // Settings before Auto-Tune started, restored if nothing helps or the test is stopped.
+        private (bool Enabled, int Profile, bool Adaptive, Dictionary<string, int> Custom)? m_BeforeTune;
 
         public float Quality { get; private set; } = 100;
         public string Stability { get; private set; } = "unknown";
@@ -73,7 +77,76 @@ namespace PerformanceDetective.Controller
             Apply();
         }
 
-        public void OnSessionEnd() => Controller.ReleaseAll("left the city");
+        public void OnSessionEnd()
+        {
+            if (Tune.Running) CancelAutoTune();
+            Controller.ReleaseAll("left the city");
+        }
+
+        // ---------------- Auto-Tune ----------------
+
+        public void StartAutoTune(bool thorough)
+        {
+            if (Tune.Running) return;
+            var st = Mod.Settings;
+            var custom = new Dictionary<string, int>();
+            foreach (var t in ControlTargets.All) custom[t.Key] = st.GetCustomReduction(t.Key);
+            m_BeforeTune = (st.ControllerEnabled, st.ControllerProfile, st.AdaptiveMode, custom);
+
+            // Candidates aimed at the pathfinding sources players and the game's statistics point at.
+            var performance = new Dictionary<string, float>();
+            foreach (var t in ControlTargets.All)
+                if (t.Key != "taxi" && t.Key != "homeSearch") performance[t.Key] = QualityCurve.Reduction(t.Priority, Profiles.Quality(Profile.Performance));
+            var all = new Dictionary<string, float>(performance) { ["taxi"] = 0.75f, ["homeSearch"] = 0.75f };
+            Tune.Start(thorough, new[]
+            {
+                new AutoTune.Candidate { Name = "Taxi dispatch 75% less often", Reductions = { ["taxi"] = 0.75f } },
+                new AutoTune.Candidate { Name = "Home searches 75% less often", Reductions = { ["homeSearch"] = 0.75f } },
+                new AutoTune.Candidate { Name = "Citizen updates (Performance profile)", Reductions = performance },
+                new AutoTune.Candidate { Name = "All of the above", Reductions = all },
+            });
+            Mod.Log.Info($"[SPC] Adaptive: Auto-Tune started ({(thorough ? "thorough" : "quick")}, {Tune.BlockCount} blocks)");
+            Apply();
+        }
+
+        public void CancelAutoTune()
+        {
+            if (!Tune.Running) return;
+            Tune.Cancel();
+            RestoreBeforeTune();
+        }
+
+        private void RestoreBeforeTune()
+        {
+            if (m_BeforeTune is not { } b) return;
+            var st = Mod.Settings;
+            st.ControllerEnabled = b.Enabled;
+            st.ControllerProfile = b.Profile;
+            st.AdaptiveMode = b.Adaptive;
+            foreach (var kv in b.Custom) st.SetCustomReduction(kv.Key, kv.Value);
+            st.ApplyAndSave();
+            m_BeforeTune = null;
+            Apply();
+        }
+
+        private void OnAutoTuneFinished()
+        {
+            var best = Tune.Best;
+            if (best == null)
+            {
+                RestoreBeforeTune();
+                return;
+            }
+            var st = Mod.Settings;
+            foreach (var t in ControlTargets.All)
+                st.SetCustomReduction(t.Key, best.Reductions.TryGetValue(t.Key, out var r) ? (int)Math.Round(r * 100) : 0);
+            st.ControllerEnabled = true;
+            st.ControllerProfile = (int)Profile.Custom;
+            st.AdaptiveMode = false;
+            st.ApplyAndSave();
+            m_BeforeTune = null;
+            Apply();
+        }
 
         private static float MaxQuality() => Profiles.Quality((Profile)Mod.Settings.ControllerProfile);
 
@@ -85,10 +158,12 @@ namespace PerformanceDetective.Controller
             if (!st.AdaptiveMode || profile == Profile.Custom) Quality = profile == Profile.Custom ? float.NaN : Profiles.Quality(profile);
             else Quality = Math.Max(Math.Min(Quality, MaxQuality()), st.MinimumQuality);
 
+            var tune = Tune.Running ? Tune.CurrentReductions : null;
             foreach (var t in ControlTargets.All)
             {
                 float r = 0;
-                if (st.ControllerEnabled)
+                if (Tune.Running) r = tune != null && tune.TryGetValue(t.Key, out var tr) ? tr : 0; // baseline blocks = normal game
+                else if (st.ControllerEnabled)
                     r = profile == Profile.Custom ? st.GetCustomReduction(t.Key) / 100f : QualityCurve.Reduction(t.Priority, Quality);
                 Controller.SetReduction(t.Key, r);
             }
@@ -108,7 +183,15 @@ namespace PerformanceDetective.Controller
             }
             else Stability = s.Loading ? "loading" : "paused";
 
-            if (running && s.T - m_LastEval >= EvalSeconds)
+            if (Tune.Running)
+            {
+                if (Tune.OnSample(s))
+                {
+                    if (Tune.Finished) OnAutoTuneFinished();
+                    else Apply();
+                }
+            }
+            else if (running && s.T - m_LastEval >= EvalSeconds)
             {
                 m_LastEval = s.T;
                 EvaluateAdaptive(s.T);

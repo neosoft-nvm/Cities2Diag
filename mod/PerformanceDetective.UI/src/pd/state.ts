@@ -57,6 +57,12 @@ export interface DetectiveState {
   stalls: number;
   captures: number;
   lastStall?: { seconds: number; minPct: number; agoSeconds: number; catchUp: number };
+  findings?: { level: "problem" | "info" | "good"; text: string }[];
+  autoTune?: {
+    running: boolean; finished: boolean; current: string; block: number; blocks: number;
+    blockRemaining: number; totalRemaining: number; settling: boolean; summary: string;
+    candidates: { name: string; gain: number | null; clear: boolean; comparisons: number }[];
+  };
   sourcesPerMin?: number;
   sources?: { name: string; perMin: number; workPct: number; successPct: number | null; tip: string | null }[];
   targets: Target[];

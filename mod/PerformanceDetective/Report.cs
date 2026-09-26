@@ -112,6 +112,21 @@ namespace PerformanceDetective
             sb.AppendLine($"- Frame time: average {F(st.FrameMsAvg, 1)} ms (≈ {F(1000 / Math.Max(1, st.FrameMsAvg), 0)} FPS), 95th percentile of per-sample worst {F(st.FrameMsP95, 1)} ms");
             sb.AppendLine();
 
+            var findings = Findings.Build(Mod.Detective);
+            if (findings.Count > 0)
+            {
+                sb.AppendLine("## Automatic findings (last 2 minutes)");
+                foreach (var f in findings) sb.AppendLine($"- [{f.Level}] {f.Text}");
+                sb.AppendLine();
+            }
+            var tune = Mod.Manager?.Tune;
+            if (tune != null && tune.Finished)
+            {
+                sb.AppendLine("## Auto-Tune result (interleaved with the normal game, measured)");
+                sb.AppendLine(tune.Summary);
+                sb.AppendLine();
+            }
+
             var sources = Mod.Detective?.Sources;
             if (sources != null && sources.Top.Count > 0)
             {

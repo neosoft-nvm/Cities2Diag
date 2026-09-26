@@ -79,6 +79,14 @@ namespace PerformanceDetective
 
         [SettingsUISection(kControllerSection, kCustomGroup)]
         [SettingsUISlider(min = 0, max = 75, step = 25, unit = Unit.kPercentage)]
+        public int CustomTaxi { get; set; }
+
+        [SettingsUISection(kControllerSection, kCustomGroup)]
+        [SettingsUISlider(min = 0, max = 75, step = 25, unit = Unit.kPercentage)]
+        public int CustomHomeSearch { get; set; }
+
+        [SettingsUISection(kControllerSection, kCustomGroup)]
+        [SettingsUISlider(min = 0, max = 75, step = 25, unit = Unit.kPercentage)]
         public int CustomHappiness { get; set; }
 
         [SettingsUISection(kControllerSection, kCustomGroup)]
@@ -109,6 +117,8 @@ namespace PerformanceDetective
                 case "pets": return CustomPets;
                 case "tourists": return CustomTourists;
                 case "events": return CustomEvents;
+                case "taxi": return CustomTaxi;
+                case "homeSearch": return CustomHomeSearch;
                 case "happiness": return CustomHappiness;
                 case "workers": return CustomWorkers;
                 case "citizens": return CustomCitizens;
@@ -124,6 +134,8 @@ namespace PerformanceDetective
                 case "pets": CustomPets = percent; break;
                 case "tourists": CustomTourists = percent; break;
                 case "events": CustomEvents = percent; break;
+                case "taxi": CustomTaxi = percent; break;
+                case "homeSearch": CustomHomeSearch = percent; break;
                 case "happiness": CustomHappiness = percent; break;
                 case "workers": CustomWorkers = percent; break;
                 case "citizens": CustomCitizens = percent; break;
@@ -137,7 +149,7 @@ namespace PerformanceDetective
             AdaptiveMode = false;
             TargetSpeedPercent = 90;
             MinimumQuality = 40;
-            CustomPets = CustomTourists = CustomEvents = CustomHappiness = CustomWorkers = CustomCitizens = 0;
+            CustomPets = CustomTourists = CustomEvents = CustomTaxi = CustomHomeSearch = CustomHappiness = CustomWorkers = CustomCitizens = 0;
             ShowOverlay = false;
         }
 
@@ -269,6 +281,10 @@ namespace PerformanceDetective
                 { s.GetOptionDescLocaleID(nameof(Setting.CustomTourists)), "Tourists re-evaluate their plans less often." },
                 { s.GetOptionLabelLocaleID(nameof(Setting.CustomEvents)), "Event attendance" },
                 { s.GetOptionDescLocaleID(nameof(Setting.CustomEvents)), "Citizens are recruited for city events less often." },
+                { s.GetOptionLabelLocaleID(nameof(Setting.CustomTaxi)), "Taxi dispatch" },
+                { s.GetOptionDescLocaleID(nameof(Setting.CustomTaxi)), "Taxis are matched to waiting passengers less often. Passengers wait longer; far fewer route searches." },
+                { s.GetOptionLabelLocaleID(nameof(Setting.CustomHomeSearch)), "Households looking for a home" },
+                { s.GetOptionDescLocaleID(nameof(Setting.CustomHomeSearch)), "Households, including homeless ones, search for a new home less often. Moving in and out happens more slowly." },
                 { s.GetOptionLabelLocaleID(nameof(Setting.CustomHappiness)), "Citizen wellbeing" },
                 { s.GetOptionDescLocaleID(nameof(Setting.CustomHappiness)), "Happiness and health values update more slowly (they still update)." },
                 { s.GetOptionLabelLocaleID(nameof(Setting.CustomWorkers)), "Workers" },

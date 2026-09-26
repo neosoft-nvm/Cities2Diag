@@ -52,6 +52,25 @@ $accent: #4aa3ff;
   margin-bottom: 6rem;
 }
 
+// ---------- findings / auto-tune ----------
+.finding {
+  margin-top: 5rem;
+  padding: 5rem 8rem;
+  background-color: $bg2;
+  border-left: 3rem solid #8a94a3;
+  border-radius: 3rem;
+  font-size: 13rem;
+  line-height: 1.35;
+}
+
+.tuneCard {
+  margin-bottom: 10rem;
+  padding: 8rem 10rem;
+  border: 1rem solid rgba(74, 163, 255, 0.45);
+  border-radius: 5rem;
+  background-color: rgba(74, 163, 255, 0.08);
+}
+
 // ---------- hero gauge ----------
 .hero {
   display: flex;

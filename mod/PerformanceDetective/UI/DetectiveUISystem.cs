@@ -63,8 +63,18 @@ namespace PerformanceDetective.UI
                 string arg = colon < 0 ? "" : command.Substring(colon + 1);
                 bool changedSettings = true;
 
+                bool tuneCommand = name == "autoTune" || name == "cancelAutoTune" || name == "panel" || name == "togglePanel"
+                                   || name == "capture" || name == "copyReport" || name == "openFolder" || name == "overlay";
+                if (manager.Tune.Running && !tuneCommand)
+                {
+                    Mod.Log.Info("[SPC] Configuration: ignored '" + command + "' while Auto-Tune runs");
+                    return;
+                }
+
                 switch (name)
                 {
+                    case "autoTune": changedSettings = false; manager.StartAutoTune(arg == "thorough"); break;
+                    case "cancelAutoTune": changedSettings = false; manager.CancelAutoTune(); break;
                     case "panel": changedSettings = false; PanelOpen = arg == "1"; break;
                     case "togglePanel": changedSettings = false; PanelOpen = !PanelOpen; break;
                     case "profile":
@@ -145,6 +155,25 @@ namespace PerformanceDetective.UI
             if (last != null)
                 j.Name("lastStall").BeginObject().Prop("seconds", last.DurationSec, 1).Prop("minPct", last.MinRatio * 100, 0)
                  .Prop("agoSeconds", d.SessionTime - last.EndT, 0).Prop("catchUp", last.CatchUpSeconds, 1).EndObject();
+
+            // Automatic findings
+            j.Name("findings").BeginArray();
+            foreach (var f in Findings.Build(d)) j.BeginObject().Prop("level", f.Level).Prop("text", f.Text).EndObject();
+            j.EndArray();
+
+            // Auto-Tune
+            if (m != null)
+            {
+                var t = m.Tune;
+                j.Name("autoTune").BeginObject().Prop("running", t.Running).Prop("finished", t.Finished)
+                 .Prop("current", t.CurrentName).Prop("block", t.BlockIndex + 1).Prop("blocks", t.BlockCount)
+                 .Prop("blockRemaining", t.BlockRemaining, 0).Prop("totalRemaining", t.TotalRemaining, 0)
+                 .Prop("settling", t.Settling).Prop("summary", t.Summary);
+                j.Name("candidates").BeginArray();
+                foreach (var c in t.Candidates)
+                    j.BeginObject().Prop("name", c.Name).Prop("gain", c.MeanDiff, 1).Prop("clear", c.Clear).Prop("comparisons", c.Diffs.Count).EndObject();
+                j.EndArray().EndObject();
+            }
 
             // Where pathfinding work comes from (last minute)
             if (d != null)

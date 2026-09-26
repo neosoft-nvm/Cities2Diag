@@ -65,6 +65,8 @@ export const DetectivePanel = () => {
             <div className={styles.note}>Load a city to start measuring.</div>
           ) : (
             <>
+              <FindingsSection s={s} />
+              <AutoTuneSection s={s} />
               <SpeedSection s={s} />
               <SourcesSection s={s} />
               <GraphSection s={s} />
@@ -77,6 +79,67 @@ export const DetectivePanel = () => {
         </div>
       </Scrollable>
     </Panel>
+  );
+};
+
+const levelColor = (level: string) => level === "problem" ? "#e5484d" : level === "good" ? "#4fbf6a" : "#8a94a3";
+
+const FindingsSection = ({ s }: { s: DetectiveState }) => {
+  const list = s.findings ?? [];
+  if (list.length === 0) return null;
+  return (
+    <div style={{ marginBottom: "10rem" }}>
+      <div className={styles.sectionTitle}>What the detective found</div>
+      {list.map((f, i) => (
+        <div key={i} className={styles.finding} style={{ borderLeftColor: levelColor(f.level) }}>{f.text}</div>
+      ))}
+    </div>
+  );
+};
+
+const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+
+const AutoTuneSection = ({ s }: { s: DetectiveState }) => {
+  const t = s.autoTune;
+  if (!t) return null;
+  if (t.running) {
+    const done = (t.block - 1) / Math.max(1, t.blocks);
+    return (
+      <div className={styles.tuneCard}>
+        <div className={classNames(styles.row, styles.spaceBetween)}>
+          <b>Auto-Tune running</b>
+          <span className={styles.metricLabel}>about {mmss(t.totalRemaining)} left</span>
+        </div>
+        <div className={styles.qualityBar}><div className={styles.qualityFill} style={{ width: `${Math.round(done * 100)}%` }} /></div>
+        <div className={styles.note}>
+          Step {t.block} of {t.blocks}: <b>{t.current}</b> — {t.settling ? "letting the city settle" : "measuring"} ({mmss(t.blockRemaining)}).
+          Keep the game running at this speed; pausing just pauses the test.
+        </div>
+        <Button className={styles.chip} onSelect={() => command("cancelAutoTune")}>Stop and restore my settings</Button>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.tuneCard}>
+      <b>Auto-Tune</b>
+      <div className={styles.note} style={{ marginTop: "2rem" }}>
+        Tests the options that target your pathfinding sources, alternating with the normal game so rush hours don't skew the result,
+        then keeps what clearly helps. You just leave the city running.
+      </div>
+      {t.finished && t.summary && <div className={styles.finding} style={{ borderLeftColor: "#4aa3ff" }}>{t.summary}</div>}
+      {t.finished && t.candidates.map(c => (
+        <div key={c.name} className={styles.targetHead}>
+          <span>{c.name}</span>
+          <span className={c.clear ? styles.better : styles.metricLabel}>
+            {c.gain == null ? "–" : `${c.gain >= 0 ? "+" : ""}${c.gain.toFixed(1)} points`}{c.clear ? " ✓" : ""}
+          </span>
+        </div>
+      ))}
+      <div className={styles.row} style={{ marginTop: "6rem" }}>
+        <Button className={styles.button} onSelect={() => command("autoTune:quick")}>Run Auto-Tune (≈18 min)</Button>
+        <Button className={styles.button} onSelect={() => command("autoTune:thorough")}>Thorough (≈43 min)</Button>
+      </div>
+    </div>
   );
 };
 
