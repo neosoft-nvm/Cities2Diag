@@ -60,6 +60,15 @@ namespace PerformanceDetective
                     Level = "problem",
                     Text = $"Pathfinding holds the simulation back {P(pathShare)} of the time: the game waits for routes to be calculated before it continues.",
                 });
+                double cpuSum = 0; int cpuN = 0;
+                foreach (var s in recent) if (!double.IsNaN(s.SystemCpuPct)) { cpuSum += s.SystemCpuPct; cpuN++; }
+                var threads = Mod.Manager?.Threads;
+                if (cpuN > 0 && cpuSum / cpuN < 85 && threads != null && threads.Available && threads.Current < threads.Workers)
+                    list.Add(new Finding
+                    {
+                        Level = "info",
+                        Text = $"Your CPU is only {cpuSum / cpuN:0}% busy while pathfinding is the bottleneck. The game uses {threads.Current} of {threads.Workers} worker threads for pathfinding — extra pathfinding threads may help (Auto-Tune tests this).",
+                    });
                 var top = d.Sources.Top;
                 if (top.Count > 0 && top[0].WorkShare >= 0.2)
                 {

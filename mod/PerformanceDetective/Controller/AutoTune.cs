@@ -25,7 +25,9 @@ namespace PerformanceDetective.Controller
             public readonly List<double> Diffs = new List<double>();       // percentage points vs neighbouring baselines
             public readonly List<double> BacklogDiffs = new List<double>();
             public double MeanDiff => Diffs.Count > 0 ? Average(Diffs) : double.NaN;
-            public bool Clear => Diffs.Count > 0 && MeanDiff >= MinClearGain && Diffs.TrueForAll(d => d > 0);
+            public bool Clear => Diffs.Count >= 2 && MeanDiff >= MinClearGain && Diffs.TrueForAll(d => d > 0);
+            /// <summary>One positive comparison of at least the clear-gain size: worth confirming, not yet proof.</summary>
+            public bool Promising => !Clear && Diffs.Count > 0 && MeanDiff >= MinClearGain && Diffs.TrueForAll(d => d > 0);
         }
 
         private sealed class Block
@@ -66,8 +68,10 @@ namespace PerformanceDetective.Controller
             m_Schedule.Clear();
             m_Done.Clear();
             int rounds = thorough ? 2 : 1;
-            m_BlockSeconds = thorough ? 150 : 120;
-            m_SettleSeconds = 40;
+            // 90 s settling absorbs carry-over (e.g. households queued during a reduction searching all at once
+            // after it ends), then 90 s of measurement.
+            m_BlockSeconds = 180;
+            m_SettleSeconds = 90;
             m_Schedule.Add(-1);
             for (int r = 0; r < rounds; r++)
                 for (int c = 0; c < Candidates.Count; c++)
@@ -159,7 +163,7 @@ namespace PerformanceDetective.Controller
             {
                 sb.Append($"{c.Name}: {Signed(c.MeanDiff)} points");
                 if (c.BacklogDiffs.Count > 0) sb.Append($", pathfinding queue {Signed(Average(c.BacklogDiffs), 0)}");
-                sb.Append(c.Clear ? " (clear gain). " : " (no clear gain). ");
+                sb.Append(c.Clear ? " (clear gain). " : c.Promising ? " (promising — confirm with the thorough test). " : " (no clear gain). ");
                 // Prefer the option that changes less unless another is clearly (> 1 point) better.
                 if (c.Clear && (best == null || c.MeanDiff > best.MeanDiff + 1.0
                                 || (Math.Abs(c.MeanDiff - best.MeanDiff) <= 1.0 && c.Reductions.Count < best.Reductions.Count)))
@@ -169,7 +173,7 @@ namespace PerformanceDetective.Controller
             sb.Append(best != null
                 ? $"Kept: {best.Name}."
                 : "None helped clearly, so your previous settings are back.");
-            if (m_Schedule.Count < 2 + 2 * Candidates.Count * 2) sb.Append(" Quick test: one comparison per option — run the thorough test to confirm.");
+            if (m_Schedule.Count < 1 + 2 * Candidates.Count * 2) sb.Append(" Quick test: one comparison per option, so nothing is kept automatically — run the thorough test to confirm.");
             Summary = sb.ToString();
             Mod.Log.Info("[SPC] Adaptive: Auto-Tune finished — " + Summary);
         }

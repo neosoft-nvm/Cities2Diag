@@ -10,6 +10,7 @@ namespace PerformanceDetective.Controller
     public partial class ControllerGateSystem : GameSystemBase
     {
         private SimulationSystem m_Simulation;
+        private bool m_ThreadsResolved;
 
         protected override void OnCreate()
         {
@@ -22,6 +23,12 @@ namespace PerformanceDetective.Controller
             var manager = Mod.Manager;
             if (manager == null) return;
             manager.Controller.Resolve(World);
+            if (!m_ThreadsResolved)
+            {
+                m_ThreadsResolved = true;
+                manager.Threads.Resolve(World);
+                manager.ApplyThreads();
+            }
             manager.Controller.Step(m_Simulation.frameIndex);
         }
     }

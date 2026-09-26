@@ -40,6 +40,7 @@ namespace PerformanceDetective
         {
             Log.Info("[SPC] Initialization: OnDispose");
             Manager?.Controller.ReleaseAll("mod unloaded");
+            Manager?.Threads.Restore();
             if (Settings != null)
             {
                 Settings.UnregisterInOptionsUI();

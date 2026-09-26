@@ -54,6 +54,11 @@ namespace PerformanceDetective
         [SettingsUISection(kControllerSection, kControllerGroup)]
         public bool ShowOverlay { get; set; }
 
+        /// <summary>Extra pathfinding threads on top of the game's default (half the job workers).</summary>
+        [SettingsUISection(kControllerSection, kControllerGroup)]
+        [SettingsUISlider(min = 0, max = 6, step = 1, unit = Unit.kInteger)]
+        public int PathfindExtraThreads { get; set; }
+
         [SettingsUISection(kControllerSection, kAdaptiveGroup)]
         public bool AdaptiveMode { get; set; }
 
@@ -150,6 +155,7 @@ namespace PerformanceDetective
             TargetSpeedPercent = 90;
             MinimumQuality = 40;
             CustomPets = CustomTourists = CustomEvents = CustomTaxi = CustomHomeSearch = CustomHappiness = CustomWorkers = CustomCitizens = 0;
+            PathfindExtraThreads = 0;
             ShowOverlay = false;
         }
 
@@ -265,6 +271,8 @@ namespace PerformanceDetective
                 { s.GetEnumValueLocaleID(Controller.Profile.Custom), "Custom" },
                 { s.GetOptionLabelLocaleID(nameof(Setting.ShowOverlay)), "Show compact overlay" },
                 { s.GetOptionDescLocaleID(nameof(Setting.ShowOverlay)), "A small always-visible box with simulation speed, FPS, what limits the simulation, and the current quality." },
+                { s.GetOptionLabelLocaleID(nameof(Setting.PathfindExtraThreads)), "Extra pathfinding threads" },
+                { s.GetOptionDescLocaleID(nameof(Setting.PathfindExtraThreads)), "The game uses half of your CPU's worker threads for pathfinding. When pathfinding holds the simulation back while CPU threads are idle, extra threads let routes be calculated faster. It does not reduce simulation detail, but gives other simulation work less CPU time if the CPU is already full. 0 = game default." },
                 { s.GetOptionLabelLocaleID(nameof(Setting.ResetController)), "Reset controller to defaults" },
                 { s.GetOptionDescLocaleID(nameof(Setting.ResetController)), "Back to Maximum Accuracy with adaptive mode off: the game runs as normal." },
 

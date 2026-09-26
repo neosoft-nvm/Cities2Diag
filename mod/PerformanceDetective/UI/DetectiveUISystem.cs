@@ -95,6 +95,9 @@ namespace PerformanceDetective.UI
                             if (parts.Length == 2 && int.TryParse(parts[1], out int v)) st.SetCustomReduction(parts[0], v);
                             break;
                         }
+                    case "threads":
+                        if (int.TryParse(arg, out int th)) st.PathfindExtraThreads = Math.Max(0, Math.Min(manager.Threads.MaxExtra, th));
+                        break;
                     case "reset": st.ResetControllerDefaults(); break;
                     case "capture": changedSettings = false; Mod.Detective?.CaptureNow(); break;
                     case "copyReport": changedSettings = false; st.CopyReport = true; break;
@@ -171,7 +174,8 @@ namespace PerformanceDetective.UI
                  .Prop("settling", t.Settling).Prop("summary", t.Summary);
                 j.Name("candidates").BeginArray();
                 foreach (var c in t.Candidates)
-                    j.BeginObject().Prop("name", c.Name).Prop("gain", c.MeanDiff, 1).Prop("clear", c.Clear).Prop("comparisons", c.Diffs.Count).EndObject();
+                    j.BeginObject().Prop("name", c.Name).Prop("gain", c.MeanDiff, 1).Prop("clear", c.Clear).Prop("promising", c.Promising)
+                     .Prop("comparisons", c.Diffs.Count).EndObject();
                 j.EndArray().EndObject();
             }
 
@@ -198,6 +202,10 @@ namespace PerformanceDetective.UI
                      .Prop("reductionPct", reduction * 100, 0).Prop("active", active)
                      .Prop("custom", st.GetCustomReduction(target.Key)).EndObject();
             j.EndArray();
+            if (m != null)
+                j.Name("threads").BeginObject().Prop("available", m.Threads.Available).Prop("current", m.Threads.Current)
+                 .Prop("default", m.Threads.Default).Prop("workers", m.Threads.Workers).Prop("extra", st.PathfindExtraThreads)
+                 .Prop("maxExtra", m.Threads.MaxExtra).EndObject();
             j.Name("unavailable").BeginArray();
             if (m != null) foreach (var u in m.Controller.Unavailable) j.Value(u);
             j.EndArray();

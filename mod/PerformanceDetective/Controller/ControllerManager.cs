@@ -33,9 +33,11 @@ namespace PerformanceDetective.Controller
 
         public readonly SimulationController Controller = new SimulationController();
         public readonly AutoTune Tune = new AutoTune();
+        public readonly PathfindThreads Threads = new PathfindThreads();
+        public const string ThreadsKey = "pathThreads";
 
         // Settings before Auto-Tune started, restored if nothing helps or the test is stopped.
-        private (bool Enabled, int Profile, bool Adaptive, Dictionary<string, int> Custom)? m_BeforeTune;
+        private (bool Enabled, int Profile, bool Adaptive, Dictionary<string, int> Custom, int ExtraThreads)? m_BeforeTune;
 
         public float Quality { get; private set; } = 100;
         public string Stability { get; private set; } = "unknown";
@@ -81,6 +83,7 @@ namespace PerformanceDetective.Controller
         {
             if (Tune.Running) CancelAutoTune();
             Controller.ReleaseAll("left the city");
+            Threads.Restore();
         }
 
         // ---------------- Auto-Tune ----------------
@@ -91,20 +94,18 @@ namespace PerformanceDetective.Controller
             var st = Mod.Settings;
             var custom = new Dictionary<string, int>();
             foreach (var t in ControlTargets.All) custom[t.Key] = st.GetCustomReduction(t.Key);
-            m_BeforeTune = (st.ControllerEnabled, st.ControllerProfile, st.AdaptiveMode, custom);
+            m_BeforeTune = (st.ControllerEnabled, st.ControllerProfile, st.AdaptiveMode, custom, st.PathfindExtraThreads);
 
-            // Candidates aimed at the pathfinding sources players and the game's statistics point at.
-            var performance = new Dictionary<string, float>();
-            foreach (var t in ControlTargets.All)
-                if (t.Key != "taxi" && t.Key != "homeSearch") performance[t.Key] = QualityCurve.Reduction(t.Priority, Profiles.Quality(Profile.Performance));
-            var all = new Dictionary<string, float>(performance) { ["taxi"] = 0.75f, ["homeSearch"] = 0.75f };
-            Tune.Start(thorough, new[]
+            // Candidates aimed at the bottleneck the measurements show: pathfinding.
+            var candidates = new List<AutoTune.Candidate>();
+            if (Threads.Available && Threads.MaxExtra > 0)
             {
-                new AutoTune.Candidate { Name = "Taxi dispatch 75% less often", Reductions = { ["taxi"] = 0.75f } },
-                new AutoTune.Candidate { Name = "Home searches 75% less often", Reductions = { ["homeSearch"] = 0.75f } },
-                new AutoTune.Candidate { Name = "Citizen updates (Performance profile)", Reductions = performance },
-                new AutoTune.Candidate { Name = "All of the above", Reductions = all },
-            });
+                int extra = Math.Min(2, Threads.MaxExtra);
+                candidates.Add(new AutoTune.Candidate { Name = $"Pathfinding threads {Threads.Default} → {Threads.Default + extra}", Reductions = { [ThreadsKey] = extra } });
+            }
+            candidates.Add(new AutoTune.Candidate { Name = "Taxi dispatch 75% less often", Reductions = { ["taxi"] = 0.75f } });
+            candidates.Add(new AutoTune.Candidate { Name = "Home searches 75% less often", Reductions = { ["homeSearch"] = 0.75f } });
+            Tune.Start(thorough, candidates);
             Mod.Log.Info($"[SPC] Adaptive: Auto-Tune started ({(thorough ? "thorough" : "quick")}, {Tune.BlockCount} blocks)");
             Apply();
         }
@@ -124,6 +125,7 @@ namespace PerformanceDetective.Controller
             st.ControllerProfile = b.Profile;
             st.AdaptiveMode = b.Adaptive;
             foreach (var kv in b.Custom) st.SetCustomReduction(kv.Key, kv.Value);
+            st.PathfindExtraThreads = b.ExtraThreads;
             st.ApplyAndSave();
             m_BeforeTune = null;
             Apply();
@@ -140,6 +142,7 @@ namespace PerformanceDetective.Controller
             var st = Mod.Settings;
             foreach (var t in ControlTargets.All)
                 st.SetCustomReduction(t.Key, best.Reductions.TryGetValue(t.Key, out var r) ? (int)Math.Round(r * 100) : 0);
+            st.PathfindExtraThreads = best.Reductions.TryGetValue(ThreadsKey, out var th) ? (int)th : 0;
             st.ControllerEnabled = true;
             st.ControllerProfile = (int)Profile.Custom;
             st.AdaptiveMode = false;
@@ -167,6 +170,21 @@ namespace PerformanceDetective.Controller
                     r = profile == Profile.Custom ? st.GetCustomReduction(t.Key) / 100f : QualityCurve.Reduction(t.Priority, Quality);
                 Controller.SetReduction(t.Key, r);
             }
+            ApplyThreads();
+        }
+
+        /// <summary>Pathfinding threads: Auto-Tune candidate, else the setting (only while the controller is on).</summary>
+        public void ApplyThreads()
+        {
+            var st = Mod.Settings;
+            int extra = 0;
+            if (Tune.Running)
+            {
+                var tune = Tune.CurrentReductions;
+                extra = tune != null && tune.TryGetValue(ThreadsKey, out var e) ? (int)e : 0;
+            }
+            else if (st.ControllerEnabled) extra = st.PathfindExtraThreads;
+            Threads.SetExtra(extra);
         }
 
         public void OnSample(Sample s)

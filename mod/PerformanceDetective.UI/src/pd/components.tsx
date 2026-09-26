@@ -123,21 +123,22 @@ const AutoTuneSection = ({ s }: { s: DetectiveState }) => {
     <div className={styles.tuneCard}>
       <b>Auto-Tune</b>
       <div className={styles.note} style={{ marginTop: "2rem" }}>
-        Tests the options that target your pathfinding sources, alternating with the normal game so rush hours don't skew the result,
-        then keeps what clearly helps. You just leave the city running.
+        Tests options aimed at the pathfinding bottleneck (more pathfinding threads, fewer taxi and home searches), alternating
+        with the normal game so rush hours don't skew the result. The quick check reports what looks promising; the thorough
+        test measures each option twice and keeps only what clearly helps. You just leave the city running.
       </div>
       {t.finished && t.summary && <div className={styles.finding} style={{ borderLeftColor: "#4aa3ff" }}>{t.summary}</div>}
       {t.finished && t.candidates.map(c => (
         <div key={c.name} className={styles.targetHead}>
           <span>{c.name}</span>
-          <span className={c.clear ? styles.better : styles.metricLabel}>
-            {c.gain == null ? "–" : `${c.gain >= 0 ? "+" : ""}${c.gain.toFixed(1)} points`}{c.clear ? " ✓" : ""}
+          <span className={c.clear ? styles.better : c.promising ? styles.promising : styles.metricLabel}>
+            {c.gain == null ? "–" : `${c.gain >= 0 ? "+" : ""}${c.gain.toFixed(1)} points`}{c.clear ? " ✓ kept" : c.promising ? " – promising" : ""}
           </span>
         </div>
       ))}
       <div className={styles.row} style={{ marginTop: "6rem" }}>
-        <Button className={styles.button} onSelect={() => command("autoTune:quick")}>Run Auto-Tune (≈18 min)</Button>
-        <Button className={styles.button} onSelect={() => command("autoTune:thorough")}>Thorough (≈43 min)</Button>
+        <Button className={styles.button} onSelect={() => command("autoTune:quick")}>Quick check (≈21 min)</Button>
+        <Button className={styles.button} onSelect={() => command("autoTune:thorough")}>Thorough — keeps what helps (≈39 min)</Button>
       </div>
     </div>
   );
@@ -328,6 +329,18 @@ const ControllerSection = ({ s }: { s: DetectiveState }) => {
         </>
       )}
 
+      {s.threads?.available && (
+        <>
+          <div className={classNames(styles.row, styles.spaceBetween)} style={{ marginTop: "10rem" }}>
+            <span>Pathfinding threads</span>
+            <Stepper value={s.threads.current} suffix={` of ${s.threads.workers}`}
+              onDown={() => command(`threads:${s.threads!.extra - 1}`)} onUp={() => command(`threads:${s.threads!.extra + 1}`)} />
+          </div>
+          <div className={styles.note}>
+            Game default: {s.threads.default}. More threads calculate routes faster when the CPU has spare capacity; they don't reduce simulation detail.
+          </div>
+        </>
+      )}
       <div className={styles.sectionTitle} style={{ marginTop: "10rem" }}>{custom ? "Custom: fewer updates per part" : "Currently reduced"}</div>
       {s.targets.map(t => <TargetRow key={t.key} t={t} custom={custom} />)}
       {s.unavailable.length > 0 && <div className={styles.warning}>Not available in this game version: {s.unavailable.join(", ")}</div>}

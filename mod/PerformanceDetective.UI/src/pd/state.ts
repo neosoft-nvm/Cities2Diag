@@ -61,10 +61,11 @@ export interface DetectiveState {
   autoTune?: {
     running: boolean; finished: boolean; current: string; block: number; blocks: number;
     blockRemaining: number; totalRemaining: number; settling: boolean; summary: string;
-    candidates: { name: string; gain: number | null; clear: boolean; comparisons: number }[];
+    candidates: { name: string; gain: number | null; clear: boolean; promising: boolean; comparisons: number }[];
   };
   sourcesPerMin?: number;
   sources?: { name: string; perMin: number; workPct: number; successPct: number | null; tip: string | null }[];
+  threads?: { available: boolean; current: number; default: number; workers: number; extra: number; maxExtra: number };
   targets: Target[];
   unavailable: string[];
   history?: { speed: (number | null)[]; fps: (number | null)[]; backlog: (number | null)[]; quality: (number | null)[]; stall: boolean[] };
