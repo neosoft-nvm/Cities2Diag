@@ -24,10 +24,19 @@ internal sealed class SessionLogger : IDisposable
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    public SessionLogger(string root, int coreCount, int gpuCount)
+    public SessionLogger(string root, List<CsvSchema.Column> columns)
     {
         _root = root;
-        _columns = CsvSchema.Build(coreCount, gpuCount);
+        _columns = columns;
+    }
+
+    public string? SessionId => _info?.SessionId;
+
+    public void AddEvent(string name)
+    {
+        if (_info == null) return;
+        _info.Events.Add(name);
+        WriteJson();
     }
 
     public void Start(SessionInfo info)
@@ -50,11 +59,7 @@ internal sealed class SessionLogger : IDisposable
     {
         if (_csv == null || _info == null) return;
         _line.Clear();
-        for (int i = 0; i < _columns.Count; i++)
-        {
-            if (i > 0) _line.Append(',');
-            _line.Append(_columns[i].Get(s));
-        }
+        CsvSchema.AppendRow(_line, _columns, s);
         _csv.WriteLine(_line);
         _info.SampleCount++;
 
@@ -69,6 +74,11 @@ internal sealed class SessionLogger : IDisposable
             _csv.Flush(); // bounded data loss on crash, without a disk write per sample
             _lastFlush = DateTime.UtcNow;
         }
+    }
+
+    public void SetFrameTiming(string summary)
+    {
+        if (_info != null) _info.FrameTiming = summary;
     }
 
     public void End()
@@ -113,6 +123,8 @@ public sealed class SessionInfo
     public MonitorSettings Settings { get; set; } = new();
     public List<string> UnavailableCounters { get; set; } = new();
     public List<MarkerInfo> Markers { get; set; } = new();
+    public List<string> Events { get; set; } = new();
+    public string? FrameTiming { get; set; }
 }
 
 public sealed class MarkerInfo

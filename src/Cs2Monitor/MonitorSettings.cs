@@ -33,18 +33,41 @@ public sealed class MonitorSettings
 
     public int UiRefreshMs { get; set; } = 500;
 
-    /// <summary>How much history is kept in memory (for the chart now, for event capture in Phase 2).</summary>
+    /// <summary>Time span shown in the live chart. (Memory history is sized automatically to fit event capture.)</summary>
     public int HistorySeconds { get; set; } = 120;
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    /// <summary>Frame timing via PresentMon (needs admin rights; see README).</summary>
+    public bool FrameTimingEnabled { get; set; } = true;
 
-    public static MonitorSettings Load()
+    /// <summary>Path to PresentMon's console exe. Empty = look for tools\PresentMon*.exe next to or above the monitor.</summary>
+    public string PresentMonPath { get; set; } = "";
+
+    /// <summary>When the monitor is not running as admin, start PresentMon with a UAC prompt when the game starts.</summary>
+    public bool PresentMonAllowUacPrompt { get; set; } = true;
+
+    /// <summary>
+    /// Samples are finalised (frame stats filled in, stall detection run, row written) this long after they are taken,
+    /// because PresentMon delivers frames with a delay.
+    /// </summary>
+    public int FrameSettleMs { get; set; } = 2500;
+
+    public DetectionSettings Detection { get; set; } = new();
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    /// <summary>Loads the user's settings file (and rewrites it with any new keys), or a given file read-only.</summary>
+    public static MonitorSettings Load(string? path = null)
     {
         MonitorSettings settings;
         try
         {
-            settings = File.Exists(FilePath)
-                ? JsonSerializer.Deserialize<MonitorSettings>(File.ReadAllText(FilePath)) ?? new MonitorSettings()
+            string file = path ?? FilePath;
+            settings = File.Exists(file)
+                ? JsonSerializer.Deserialize<MonitorSettings>(File.ReadAllText(file)) ?? new MonitorSettings()
                 : new MonitorSettings();
         }
         catch (Exception)
@@ -54,6 +77,7 @@ public sealed class MonitorSettings
         }
 
         settings.Clamp();
+        if (path != null) return settings;
         try
         {
             Directory.CreateDirectory(RootDirectory);
@@ -69,6 +93,9 @@ public sealed class MonitorSettings
         ThreadListRefreshMs = Math.Clamp(ThreadListRefreshMs, 500, 30000);
         UiRefreshMs = Math.Clamp(UiRefreshMs, 100, 5000);
         HistorySeconds = Math.Clamp(HistorySeconds, 10, 3600);
+        FrameSettleMs = Math.Clamp(FrameSettleMs, 0, 10000);
+        Detection ??= new DetectionSettings();
+        Detection.Clamp();
         if (string.IsNullOrWhiteSpace(ProcessName)) ProcessName = "Cities2";
         if (ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) ProcessName = ProcessName[..^4];
         return this;

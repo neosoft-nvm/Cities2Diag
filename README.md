@@ -10,7 +10,7 @@ slows to "slow motion" for ~5–7 seconds while FPS stays roughly the same, then
 | Phase | Scope | State |
 |---|---|---|
 | 1 | Windows companion monitor: process detection, CPU, RAM, GPU/VRAM, logging, basic UI | **done — needs testing against a real stalling city** |
-| 2 | Rolling buffer event recorder, automatic stall detection, event files, event viewer | not started |
+| 2 | Frame timing (PresentMon), rolling buffer, automatic stall detection, manual capture, event files, event viewer | **implemented — detector tested with a synthetic load; needs tuning against the real city** |
 | 3 | CS2 diagnostic mod (simulation data from inside the game) | not started |
 | 4 | Correlation of game + Windows + hardware + frame-time data | not started |
 | 5 | Classification / pattern analysis | not started |
@@ -27,11 +27,12 @@ src\Cs2Monitor\bin\Release\net8.0-windows\Cs2Monitor.exe
 In VS Code: `Terminal → Run Build Task` (Ctrl+Shift+B), or F5 with the C# extension installed.
 
 Start the monitor before or after the game. It attaches to `Cities2.exe` automatically and starts a new
-session log each time the game starts.
+session log each time the game starts. For frame timing, get PresentMon (see [tools/README.md](tools/README.md));
+when the game starts you get one UAC prompt for it (none if the monitor itself runs as administrator).
 
-**When you see a slowdown, press `Ctrl+Alt+M`** (works while the game has focus; you'll hear a chime).
-This writes a marker into the log so the moment can be found later. Phase 2 will turn this into full
-event capture.
+**When you see a slowdown, press `Ctrl+Alt+M`** — *Capture event* (works while the game has focus; you'll hear a chime).
+If the detector is already recording a stall, this marks it as confirmed by you; otherwise it saves a manual event
+around that moment.
 
 ## Output
 
@@ -40,10 +41,51 @@ Documents\CS2StallInvestigator\
   settings.json                        editable settings (created on first run)
   Sessions\Session_20260926_201500\
     samples.csv                        one row per sample (default 5 per second)
-    session.json                       system info, game version, settings, markers
+    frames.csv                         raw per-frame data from PresentMon
+    session.json                       system info, game version, settings, markers, event list
+    Events\
+      CS2_Event_00017.json             summary, observations, rules fired, full timeline
+      CS2_Event_00017.csv              every sample of the event window, for spreadsheets
 ```
 
-An empty CSV cell means *not measured*, never zero.
+An empty CSV cell means *not measured*, never zero. Event ids are unique across all sessions.
+
+## Stall detection
+
+Each sample is finalised ~2.5 s after it is taken (`FrameSettleMs`), once PresentMon has delivered that
+moment's frames; the detector then runs on it:
+
+```
+NORMAL ──any trigger rule fires──▶ WARNING ──≥ 2 s, ≥ 70 % of samples abnormal──▶ STALL
+   ▲                                  │ quiet 1 s                                   │ quiet 1 s
+   └──────────── NORMAL ◀── 20 s ── RECOVERY ◀─────────────────────────────────────┘
+```
+
+A rule compares one metric with its **baseline** — the median over the last 60 s of normal samples — so
+"normal" adapts to your city. Default rules (all editable in `settings.json` → `Detection.Rules`):
+
+| Rule | Condition | Role |
+|---|---|---|
+| GPU load drop | GPU load ≤ baseline − 30 points | trigger |
+| Frame time rise | frame time ≥ 1.5 × baseline and ≥ baseline + 5 ms | trigger |
+| Game main thread saturated | main thread ≥ 95 % and ≥ baseline + 15 | trigger |
+| Game CPU rise | game CPU ≥ baseline + 1 core | trigger |
+| Game not responding | Windows reports the window hung | trigger |
+| Monitor itself delayed | sample interval ≥ 2 × baseline (system-wide hitch) | trigger |
+| Hard page faults | ≥ 1000 pages/s | context |
+
+*Context* rules are recorded but never start or extend a stall (paging comes in bursts on a busy PC and
+produced false/overlong stalls in testing). Metric keys usable in rules are listed in `src/Cs2Monitor/Metrics.cs`.
+
+These defaults are a starting point, not knowledge about CS2: **the first real sessions are for tuning them.**
+Each event records which rules fired, so false positives are easy to see.
+
+Important limit: the monitor cannot see simulation speed from outside the game. If the slowdown leaves every
+Windows-side measurement unchanged, the detector will miss it — use Capture, and see Phase 3.
+
+Events are labelled `UNKNOWN / INSUFFICIENT DATA` until automatic classification exists (Phase 5); they list
+measured before/during/after values and notable changes ("observations") without drawing conclusions.
+For manual captures, *during* is 5 s before to 1 s after the key press.
 
 ## What is measured, and where it comes from
 
@@ -71,9 +113,16 @@ Every value comes from a Windows or NVIDIA API; nothing is estimated.
   in the driver for 1–3 ms); load and VRAM are read every sample.
 * NVML GPU load is averaged by the driver over its own sampling window (1/6 s – 1 s depending on GPU).
 
+### Frame timing
+
+From PresentMon, per sample: frames, FPS, average and maximum frame time (`MsBetweenPresents`), and the average
+CPU-busy / GPU-busy time per frame (`MsCPUBusy`, `MsGPUBusy`) — the split that separates CPU-side from GPU-side
+frame cost. PresentMon writes into a named pipe owned by the monitor (it locks output files while running), and
+its frame timestamps use the same QueryPerformanceCounter clock as the samples, so no alignment guessing is involved.
+If the monitor is closed while the game runs, an elevated PresentMon keeps running until the game exits.
+
 ### Not measured yet
 
-* **FPS / frame time** — planned for Phase 2 using PresentMon (ETW), the standard tool for this.
 * **Population, simulation speed, agents, etc.** — only available from inside the game: Phase 3 mod.
 
 ## Monitor overhead
@@ -96,7 +145,12 @@ raise `SampleIntervalMs`.
 | `EnableThreadSampling` | `true` | main / busiest thread CPU |
 | `ThreadListRefreshMs` | `2000` | how often new game threads are picked up |
 | `UiRefreshMs` | `500` | |
-| `HistorySeconds` | `120` | in-memory history (chart now, event capture later) |
+| `HistorySeconds` | `120` | span of the live chart |
+| `FrameTimingEnabled` | `true` | use PresentMon |
+| `PresentMonPath` | *(empty)* | empty = find `tools\PresentMon*.exe` |
+| `PresentMonAllowUacPrompt` | `true` | when not running as admin, ask via UAC when the game starts |
+| `FrameSettleMs` | `2500` | delay before a sample is finalised (frames arrive late) |
+| `Detection` | | baseline/duration thresholds, pre/post seconds (20/20), `Rules` — see above |
 
 ## Testing without the game
 
@@ -104,5 +158,9 @@ raise `SampleIntervalMs`.
 Cs2Monitor.exe --process explorer --logdir C:\temp\cs2test --headless 10
 ```
 
-`--process` attaches to any process, `--headless N` samples for N seconds without a window,
-`--gpu-engine 0` / `--threads 0` disable those collectors. None of these change `settings.json`.
+* `--settings FILE` use a separate settings file (read-only)
+* `--process NAME` attach to any process; `--logdir DIR` log elsewhere
+* `--headless N` sample for N seconds without a window; `--capture-at SEC` simulate a capture key press
+* `--gpu-engine 0`, `--threads 0`, `--frames 0` disable those collectors
+
+None of these change `settings.json`.

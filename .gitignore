@@ -4,3 +4,6 @@ obj/
 *.user
 *.suo
 TestResults/
+
+# Third-party binaries (see tools/README.md)
+tools/*.exe

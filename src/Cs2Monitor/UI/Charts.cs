@@ -2,25 +2,41 @@ using System.Drawing.Drawing2D;
 
 namespace Cs2Monitor.UI;
 
-internal sealed record ChartSeries(string Name, Color Color, Func<Sample, double?> Value);
+internal sealed record ChartSeries(string Name, Color Color, double?[] Values);
+internal sealed record ChartBand(double From, double To, Color Color);
+internal sealed record ChartMark(double X, string Label);
 
-/// <summary>Scrolling 0–100 % line chart of the in-memory history. Gaps are drawn where a value is missing.</summary>
-internal sealed class MiniChart : Control
+/// <summary>
+/// Line chart over time (x in seconds). Missing values (null) are drawn as gaps.
+/// Bands shade time ranges (e.g. a stall); marks draw dashed vertical lines (e.g. key presses).
+/// </summary>
+internal sealed class TimelineChart : Control
 {
-    private Sample[] _samples = Array.Empty<Sample>();
-    public List<ChartSeries> Series { get; } = new();
-    public double WindowMs { get; set; } = 120_000;
+    private double[] _x = Array.Empty<double>();
+    private IReadOnlyList<ChartSeries> _series = Array.Empty<ChartSeries>();
+    private IReadOnlyList<ChartBand> _bands = Array.Empty<ChartBand>();
+    private IReadOnlyList<ChartMark> _marks = Array.Empty<ChartMark>();
 
-    public MiniChart()
+    public string Unit { get; set; } = "%";
+    /// <summary>Fixed y maximum; null = scale to data.</summary>
+    public double? FixedMax { get; set; } = 100;
+    public double? XMin { get; set; }
+    public double? XMax { get; set; }
+    public string XLabel { get; set; } = "s";
+
+    public TimelineChart()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.UserPaint, true);
         BackColor = Color.FromArgb(24, 26, 30);
         ForeColor = Color.FromArgb(170, 176, 186);
     }
 
-    public void SetData(Sample[] samples)
+    public void SetData(double[] x, IReadOnlyList<ChartSeries> series, IReadOnlyList<ChartBand>? bands = null, IReadOnlyList<ChartMark>? marks = null)
     {
-        _samples = samples;
+        _x = x;
+        _series = series;
+        _bands = bands ?? Array.Empty<ChartBand>();
+        _marks = marks ?? Array.Empty<ChartMark>();
         Invalidate();
     }
 
@@ -28,58 +44,99 @@ internal sealed class MiniChart : Control
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        var plot = new Rectangle(40, 22, Width - 50, Height - 40);
+        var plot = new Rectangle(52, 24, Width - 64, Height - 44);
         if (plot.Width < 20 || plot.Height < 20) return;
 
         using var grid = new Pen(Color.FromArgb(48, 52, 58));
         using var text = new SolidBrush(ForeColor);
-        foreach (int pct in new[] { 0, 25, 50, 75, 100 })
+
+        double xMin = XMin ?? (_x.Length > 0 ? _x[0] : 0);
+        double xMax = XMax ?? (_x.Length > 0 ? _x[^1] : 1);
+        if (xMax <= xMin) xMax = xMin + 1;
+        double yMax = FixedMax ?? NiceMax(_series);
+
+        float X(double v) => plot.Left + (float)((v - xMin) / (xMax - xMin) * plot.Width);
+        float Y(double v) => plot.Bottom - (float)(Math.Clamp(v, 0, yMax) / yMax * plot.Height);
+
+        foreach (var b in _bands)
         {
-            int y = plot.Bottom - pct * plot.Height / 100;
-            g.DrawLine(grid, plot.Left, y, plot.Right, y);
-            g.DrawString(pct + "%", Font, text, 2, y - Font.Height / 2);
+            float x0 = Math.Max(plot.Left, X(b.From)), x1 = Math.Min(plot.Right, X(b.To));
+            if (x1 <= x0) continue;
+            using var brush = new SolidBrush(b.Color);
+            g.FillRectangle(brush, x0, plot.Top, x1 - x0, plot.Height);
         }
 
-        // Legend
+        for (int i = 0; i <= 4; i++)
+        {
+            double v = yMax * i / 4;
+            float y = Y(v);
+            g.DrawLine(grid, plot.Left, y, plot.Right, y);
+            string label = (yMax >= 10 ? v.ToString("0") : v.ToString("0.#")) + (Unit == "%" ? "%" : "");
+            g.DrawString(label, Font, text, 2, y - Font.Height / 2f);
+        }
+        if (Unit != "%") g.DrawString(Unit, Font, text, 2, plot.Top - Font.Height - 4);
+
+        double step = NiceStep((xMax - xMin) / 8);
+        for (double v = Math.Ceiling(xMin / step) * step; v <= xMax; v += step)
+        {
+            float x = X(v);
+            g.DrawLine(grid, x, plot.Bottom, x, plot.Bottom + 3);
+            string label = v.ToString(step < 1 ? "0.0" : "0") + XLabel;
+            var size = g.MeasureString(label, Font);
+            g.DrawString(label, Font, text, x - size.Width / 2, plot.Bottom + 3);
+        }
+
         float lx = plot.Left;
-        foreach (var s in Series)
+        foreach (var s in _series)
         {
             using var b = new SolidBrush(s.Color);
-            g.FillRectangle(b, lx, 6, 10, 10);
-            g.DrawString(s.Name, Font, text, lx + 13, 3);
+            g.FillRectangle(b, lx, 7, 10, 10);
+            g.DrawString(s.Name, Font, text, lx + 13, 4);
             lx += 13 + g.MeasureString(s.Name, Font).Width + 12;
         }
 
-        if (_samples.Length < 2) return;
-        double tEnd = _samples[^1].TMs;
-        double tStart = tEnd - WindowMs;
-        g.DrawString($"last {WindowMs / 1000:0} s", Font, text, plot.Left, plot.Bottom + 2);
-
-        foreach (var series in Series)
+        g.SetClip(plot);
+        foreach (var series in _series)
         {
             using var pen = new Pen(series.Color, 1.6f);
             PointF? prev = null;
-            foreach (var s in _samples)
+            int n = Math.Min(_x.Length, series.Values.Length);
+            for (int i = 0; i < n; i++)
             {
-                if (s.TMs < tStart) continue;
-                var v = series.Value(s);
-                if (v == null) { prev = null; continue; }
-                float x = plot.Left + (float)((s.TMs - tStart) / WindowMs * plot.Width);
-                float y = plot.Bottom - (float)(Math.Clamp(v.Value, 0, 100) / 100 * plot.Height);
-                var p = new PointF(x, y);
+                if (_x[i] < xMin || series.Values[i] is not double v) { prev = null; continue; }
+                var p = new PointF(X(_x[i]), Y(v));
                 if (prev.HasValue) g.DrawLine(pen, prev.Value, p);
                 prev = p;
             }
         }
+        g.ResetClip();
 
-        // Manual markers as vertical lines
-        using var markerPen = new Pen(Color.FromArgb(230, 200, 60), 1f) { DashStyle = DashStyle.Dash };
-        foreach (var s in _samples)
+        using var markPen = new Pen(Color.FromArgb(230, 200, 60), 1f) { DashStyle = DashStyle.Dash };
+        using var markBrush = new SolidBrush(Color.FromArgb(230, 200, 60));
+        foreach (var m in _marks)
         {
-            if (s.Marker == null || s.TMs < tStart) continue;
-            float x = plot.Left + (float)((s.TMs - tStart) / WindowMs * plot.Width);
-            g.DrawLine(markerPen, x, plot.Top, x, plot.Bottom);
+            if (m.X < xMin || m.X > xMax) continue;
+            float x = X(m.X);
+            g.DrawLine(markPen, x, plot.Top, x, plot.Bottom);
+            g.DrawString(m.Label, Font, markBrush, x + 2, plot.Top + 2);
         }
+    }
+
+    private static double NiceMax(IReadOnlyList<ChartSeries> series)
+    {
+        double max = 0;
+        foreach (var s in series)
+            foreach (var v in s.Values)
+                if (v is double d && double.IsFinite(d)) max = Math.Max(max, d);
+        return max <= 0 ? 1 : NiceStep(max * 1.1 / 4) * 4;
+    }
+
+    private static double NiceStep(double raw)
+    {
+        if (raw <= 0) return 1;
+        double mag = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        double n = raw / mag;
+        return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
     }
 }
 

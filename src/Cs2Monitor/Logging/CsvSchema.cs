@@ -82,8 +82,30 @@ internal static class CsvSchema
             cols.Add(new($"nv{g}_throttle_reasons", s => G(s)?.ThrottleReasons is ulong r ? "0x" + r.ToString("X", CultureInfo.InvariantCulture) : ""));
         }
 
-        cols.Add(new("marker", s => Text(s.Marker)));
+        cols.AddRange(new Column[]
+        {
+            new("frames", s => I(s.Frames)),
+            new("fps", s => F(s.Fps)),
+            new("frametime_avg_ms", s => F(s.FrameTimeAvgMs)),
+            new("frametime_max_ms", s => F(s.FrameTimeMaxMs)),
+            new("frame_cpu_busy_ms", s => F(s.FrameCpuBusyAvgMs)),
+            new("frame_gpu_busy_ms", s => F(s.FrameGpuBusyAvgMs)),
+            new("detector_phase", s => s.Phase ?? ""),
+            new("abnormal", s => s.Abnormal ? "1" : "0"),
+            new("rules_fired", s => Text(s.RulesFired)),
+            new("context_fired", s => Text(s.ContextFired)),
+            new("marker", s => Text(s.Marker)),
+        });
         return cols;
+    }
+
+    public static void AppendRow(System.Text.StringBuilder sb, List<Column> columns, Sample s)
+    {
+        for (int i = 0; i < columns.Count; i++)
+        {
+            if (i > 0) sb.Append(',');
+            sb.Append(columns[i].Get(s));
+        }
     }
 
     private static string F(double? v) => v.HasValue && double.IsFinite(v.Value) ? v.Value.ToString("0.###", CultureInfo.InvariantCulture) : "";

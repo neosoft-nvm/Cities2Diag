@@ -8,6 +8,7 @@ public sealed class Sample
 {
     // Timing of the sampler itself
     public DateTime Utc;
+    public double QpcMs;        // QueryPerformanceCounter in ms: same clock as PresentMon's CPUStartQPCTimeInMs
     public double TMs;          // ms since the monitor started (monotonic)
     public double IntervalMs;   // actual time since the previous sample; large values = the monitor itself was delayed
     public double CostMs;       // time spent collecting this sample
@@ -67,6 +68,21 @@ public sealed class Sample
 
     // Per NVIDIA GPU (NVML)
     public GpuSample[] Gpus = Array.Empty<GpuSample>();
+
+    // Frame timing (PresentMon) for the frames whose CPU work started within this sample's interval.
+    // Filled in shortly after the sample is taken ("settling"), once PresentMon has delivered those frames.
+    public int? Frames;
+    public double? Fps;
+    public double? FrameTimeAvgMs;     // MsBetweenPresents
+    public double? FrameTimeMaxMs;
+    public double? FrameCpuBusyAvgMs;  // MsCPUBusy: CPU time the app spent on the frame
+    public double? FrameGpuBusyAvgMs;  // MsGPUBusy: time the GPU was working on the frame
+
+    // Stall detector output
+    public string? Phase;              // idle, warmup, normal, warning, stall, recovery
+    public bool Abnormal;
+    public string? RulesFired;         // trigger rules
+    public string? ContextFired;       // context rules (recorded only)
 
     public string? Marker;
 
