@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Native struct layouts (PDH, NVML) are written for 64-bit. CS2 is 64-bit only anyway. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>Cs2Monitor</RootNamespace>
+    <AssemblyName>Cs2Monitor</AssemblyName>
+    <Version>0.1.0</Version>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>
