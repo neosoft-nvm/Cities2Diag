@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { bindValue, bindLocalValue, trigger, useValue } from "cs2/api";
+import { bindValue, trigger, useValue } from "cs2/api";
 
 const GROUP = "performanceDetective";
 
@@ -65,8 +65,8 @@ export interface DetectiveState {
 
 const state$ = bindValue<string>(GROUP, "state", "{}");
 
-/** Whether the panel is open. Local to the UI, shared by the toolbar button and the panel. */
-export const panelOpen$ = bindLocalValue(false);
+/** Whether the panel is open. Kept on the C# side so Ctrl+Alt+P and the Options button can open it too. */
+export const panelOpen$ = bindValue<boolean>(GROUP, "panelOpen", false);
 
 export function useDetective(): DetectiveState | null {
   const raw = useValue(state$);

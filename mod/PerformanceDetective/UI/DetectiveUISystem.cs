@@ -21,17 +21,26 @@ namespace PerformanceDetective.UI
         private double m_LastBuild = -10;
         private string m_State = "{}";
 
+        /// <summary>Panel visibility lives on the C# side so the keyboard shortcut and Options button can open it.</summary>
+        public static bool PanelOpen { get; set; }
+
         public override GameMode gameMode => GameMode.Game;
 
         protected override void OnCreate()
         {
             base.OnCreate();
             AddUpdateBinding(new GetterValueBinding<string>(Group, "state", () => m_State));
+            AddUpdateBinding(new GetterValueBinding<bool>(Group, "panelOpen", () => PanelOpen));
             AddBinding(new TriggerBinding<string>(Group, "command", OnCommand));
         }
 
         protected override void OnUpdate()
         {
+            // Ctrl+Alt+P opens/closes the panel (works however crowded the toolbar is).
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null && kb.pKey.wasPressedThisFrame && kb.ctrlKey.isPressed && kb.altKey.isPressed)
+                PanelOpen = !PanelOpen;
+
             double now = m_Clock.Elapsed.TotalSeconds;
             if (now - m_LastBuild >= RefreshSeconds)
             {
@@ -56,6 +65,8 @@ namespace PerformanceDetective.UI
 
                 switch (name)
                 {
+                    case "panel": changedSettings = false; PanelOpen = arg == "1"; break;
+                    case "togglePanel": changedSettings = false; PanelOpen = !PanelOpen; break;
                     case "profile":
                         if (int.TryParse(arg, out int p) && p >= 0 && p <= (int)Profile.Custom) st.ControllerProfile = p;
                         break;

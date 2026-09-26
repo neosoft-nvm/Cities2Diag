@@ -32,6 +32,13 @@ namespace PerformanceDetective
         // Most players use the in-game panel (toolbar button); these mirror it.
 
         [SettingsUISection(kControllerSection, kControllerGroup)]
+        [SettingsUIButton]
+        public bool OpenPanel
+        {
+            set => UI.DetectiveUISystem.PanelOpen = true;
+        }
+
+        [SettingsUISection(kControllerSection, kControllerGroup)]
         public bool ControllerEnabled { get; set; }
 
         [SettingsUISection(kControllerSection, kControllerGroup)]
@@ -233,6 +240,8 @@ namespace PerformanceDetective
                 { s.GetOptionGroupLocaleID(Setting.kAdaptiveGroup), "Adaptive mode" },
                 { s.GetOptionGroupLocaleID(Setting.kCustomGroup), "Custom profile: how much less often each part runs" },
 
+                { s.GetOptionLabelLocaleID(nameof(Setting.OpenPanel)), "Open the Performance Detective panel" },
+                { s.GetOptionDescLocaleID(nameof(Setting.OpenPanel)), "Opens the in-game panel (close the Options menu to see it). Shortcut in game: Ctrl+Alt+P. The toolbar button is in the top-left button row and in the mod menu." },
                 { s.GetOptionLabelLocaleID(nameof(Setting.ControllerEnabled)), "Controller enabled" },
                 { s.GetOptionDescLocaleID(nameof(Setting.ControllerEnabled)), "Master switch. Off = the game runs exactly as normal; everything the controller changed is restored immediately." },
                 { s.GetOptionLabelLocaleID(nameof(Setting.ProfileSetting)), "Simulation quality profile" },

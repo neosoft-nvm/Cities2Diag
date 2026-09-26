@@ -14,11 +14,11 @@ export const ToolbarButton = () => {
   const open = useValue(panelOpen$);
   const color = s ? stabilityColor(s.stability) : "#8a94a3";
   const tip = s && s.speedPct != null
-    ? `Performance Detective — simulation at ${fmt(s.speedPct)}% of selected speed`
-    : "Performance Detective";
+    ? `Performance Detective — simulation at ${fmt(s.speedPct)}% of selected speed (Ctrl+Alt+P)`
+    : "Performance Detective (Ctrl+Alt+P)";
   return (
     <div className={styles.toolbarWrap}>
-      <FloatingButton src={icon} selected={open} tooltipLabel={tip} onSelect={() => panelOpen$.update(!open)} />
+      <FloatingButton src={icon} selected={open} tooltipLabel={tip} onSelect={() => command("togglePanel")} />
       <div className={styles.statusDot} style={{ backgroundColor: color }} />
     </div>
   );
@@ -57,7 +57,7 @@ export const DetectivePanel = () => {
     <Panel
       className={styles.panel}
       header={<span>Performance Detective</span>}
-      onClose={() => panelOpen$.update(false)}
+      onClose={() => command("panel:0")}
     >
       <Scrollable style={{ maxHeight: "78vh" }}>
         <div className={styles.content}>
