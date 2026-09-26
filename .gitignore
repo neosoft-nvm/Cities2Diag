@@ -7,3 +7,7 @@ TestResults/
 
 # Third-party binaries (see tools/README.md)
 tools/*.exe
+
+# CS2 mod post-processor working folders
+mod/**/Library/
+mod/**/Logs/
