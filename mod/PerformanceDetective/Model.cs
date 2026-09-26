@@ -14,7 +14,14 @@ namespace PerformanceDetective
         public float SelectedSpeed;      // speed the player chose (0 = paused)
         public float SmoothSpeed;        // speed reported by the game's SimulationSystem
         public double TicksPerSec;       // simulation frames advanced per real second (measured)
-        public double Ratio = double.NaN;// TicksPerSec / normal rate at this speed (1.0 = normal)
+        public double Ratio = double.NaN;// TicksPerSec / this city's recent normal rate at this speed (stall detection)
+        public double AbsRatio = double.NaN; // TicksPerSec / (60 × selected speed): the game's own target (1.0 = full speed)
+        public double StepsPerFrame = double.NaN;
+        public double StepMs = double.NaN;   // CPU time per simulation step (SimulationSystem.frameDuration)
+        public long PathHeadroom = -1;       // simulation frames until pending pathfinding results are due (-1 = none pending)
+        public int PathBacklog = -1;         // pending pathfinding requests
+        public string Limiter = "";          // what holds the simulation back: pathfinding | cpu | none
+        public float Quality = float.NaN;    // controller simulation quality at this moment
 
         // Rendering
         public int Frames;

@@ -11,3 +11,6 @@ tools/*.exe
 # CS2 mod post-processor working folders
 mod/**/Library/
 mod/**/Logs/
+
+# UI module build dependencies
+mod/PerformanceDetective.UI/node_modules/

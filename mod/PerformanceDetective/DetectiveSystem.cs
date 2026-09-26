@@ -33,6 +33,7 @@ namespace PerformanceDetective
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         private SimulationSystem m_Simulation;
+        private Game.Pathfind.PathfindResultSystem m_PathfindResults;
         private NotificationUISystem m_Notifications;
         private EntityQuery m_PopulationQuery;
 
@@ -71,10 +72,27 @@ namespace PerformanceDetective
         public static string RootDirectory => Path.Combine(Application.persistentDataPath, "ModsData", "PerformanceDetective");
         public string SessionOrLastDirectory => m_SessionDir ?? m_LastSessionDir;
 
+        // Read by the UI system (main thread).
+        public bool InSession => m_InSession;
+        public Sample LastSample => m_Samples.Count > 0 ? m_Samples[m_Samples.Count - 1] : null;
+        public int StallCount { get { int n = 0; foreach (var e in m_Events) if (e.Kind == "stall") n++; return n; } }
+        public StallEvent LastStall { get { for (int i = m_Events.Count - 1; i >= 0; i--) if (m_Events[i].Kind == "stall") return m_Events[i]; return null; } }
+        public int CaptureCount => m_CaptureCount;
+        public string PerformancePreference => m_System?.PerformancePreference ?? "unknown";
+        public double SessionTime => m_InSession ? m_Clock.Elapsed.TotalSeconds - m_SessionStart : 0;
+
+        /// <summary>Capture button in the panel (same as the capture key).</summary>
+        public void CaptureNow()
+        {
+            if (m_InSession) Capture(SessionTime);
+        }
+
         protected override void OnCreate()
         {
             base.OnCreate();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
+            try { m_PathfindResults = World.GetOrCreateSystemManaged<Game.Pathfind.PathfindResultSystem>(); }
+            catch (Exception e) { Mod.Log.Warn("[SPC] Compatibility: pathfinding status unavailable: " + e.Message); }
             m_Notifications = World.GetOrCreateSystemManaged<NotificationUISystem>();
             m_PopulationQuery = GetEntityQuery(ComponentType.ReadOnly<Population>());
             m_Writer = new BackgroundWriter();
@@ -132,8 +150,14 @@ namespace PerformanceDetective
             m_FrameMsSum = m_FrameMsMax = 0;
 
             uint frameIndex = m_Simulation.frameIndex;
-            s.TicksPerSec = frameIndex >= m_LastFrameIndex && dt > 0 ? (frameIndex - m_LastFrameIndex) / dt : 0;
+            uint steps = frameIndex >= m_LastFrameIndex ? frameIndex - m_LastFrameIndex : 0;
+            s.TicksPerSec = dt > 0 ? steps / dt : 0;
             m_LastFrameIndex = frameIndex;
+            if (s.SelectedSpeed > 0 && !loading) s.AbsRatio = s.TicksPerSec / (60.0 * s.SelectedSpeed);
+            if (s.Frames > 0) s.StepsPerFrame = (double)steps / s.Frames;
+            float stepSeconds = m_Simulation.frameDuration;
+            if (stepSeconds > 0) s.StepMs = stepSeconds * 1000.0;
+            MeasurePathfinding(s, frameIndex);
 
             MeasureResources(s, dt);
 
@@ -160,6 +184,12 @@ namespace PerformanceDetective
             m_Detector.MinStallSeconds = settings.MinStallSeconds;
             bool wasInStall = m_Detector.InStall;
             var finished = m_Detector.Process(s);
+            var manager = Mod.Manager;
+            if (manager != null)
+            {
+                manager.OnSample(s);
+                s.Quality = manager.Quality;
+            }
             m_Samples.Add(s);
             AppendCsv(s);
 
@@ -177,6 +207,31 @@ namespace PerformanceDetective
             }
 
             if (s.T - m_LastCsvFlush >= 5) FlushCsv(s.T);
+        }
+
+        /// <summary>
+        /// The game runs the simulation only up to the frame by which queued path results are due, and slows the
+        /// simulation when fewer than 48 frames of headroom remain (see docs/CONTROLLER_DESIGN.md).
+        /// </summary>
+        private void MeasurePathfinding(Sample s, uint frameIndex)
+        {
+            if (m_PathfindResults == null) return;
+            try
+            {
+                uint pending = m_PathfindResults.pendingSimulationFrame;
+                s.PathBacklog = m_PathfindResults.pendingRequestCount;
+                s.PathHeadroom = pending == uint.MaxValue ? -1 : Math.Max(0L, (long)pending - frameIndex);
+            }
+            catch (Exception)
+            {
+                m_PathfindResults = null; // API changed: stop trying, keep the rest working
+                Mod.Log.Warn("[SPC] Compatibility: pathfinding status no longer readable");
+                return;
+            }
+            if (s.Loading || s.SelectedSpeed <= 0 || double.IsNaN(s.AbsRatio)) s.Limiter = "";
+            else if (s.PathHeadroom >= 0 && s.PathHeadroom < 48) s.Limiter = "pathfinding";
+            else if (s.AbsRatio < 0.9) s.Limiter = "cpu";
+            else s.Limiter = "none";
         }
 
         private void MeasureResources(Sample s, double dt)
@@ -316,8 +371,10 @@ namespace PerformanceDetective
             m_LastPopulationT = -1000;
             m_SessionDir = Path.Combine(RootDirectory, "Sessions", DateTime.Now.ToString("yyyyMMdd_HHmmss", Inv));
             m_System = TakeSystemSnapshot();
+            Mod.Manager?.OnSessionStart();
             m_Writer.Write(Path.Combine(m_SessionDir, "samples.csv"),
-                "utc,t_s,interval_ms,loading,selected_speed,smooth_speed,ticks_per_s,ratio,state,frames,frame_ms_avg,frame_ms_max," +
+                "utc,t_s,interval_ms,loading,selected_speed,smooth_speed,ticks_per_s,ratio,abs_speed,steps_per_frame,step_ms," +
+                "path_backlog,path_headroom,limiter,quality,state,frames,frame_ms_avg,frame_ms_max," +
                 "game_cores,system_cpu_pct,private_mb,working_set_mb,page_faults_per_s,ram_avail_mb,ram_total_mb,commit_used_mb,commit_limit_mb,population,marker\n");
             Mod.Log.Info("session started: " + m_SessionDir);
         }
@@ -326,6 +383,7 @@ namespace PerformanceDetective
         {
             if (!m_InSession) return;
             m_InSession = false;
+            Mod.Manager?.OnSessionEnd();
             foreach (var c in m_PendingCaptures) { c.EndT = c.StartT; FinishEvent(c); }
             m_PendingCaptures.Clear();
             HideNotification();
@@ -357,7 +415,11 @@ namespace PerformanceDetective
             b.Append(s.Utc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", Inv)).Append(',')
              .Append(N(s.T, 3)).Append(',').Append(N(s.IntervalMs, 1)).Append(',').Append(s.Loading ? "1" : "0").Append(',')
              .Append(N(s.SelectedSpeed, 2)).Append(',').Append(N(s.SmoothSpeed, 3)).Append(',').Append(N(s.TicksPerSec, 2)).Append(',')
-             .Append(N(s.Ratio, 3)).Append(',').Append(s.State).Append(',').Append(s.Frames).Append(',')
+             .Append(N(s.Ratio, 3)).Append(',').Append(N(s.AbsRatio, 3)).Append(',').Append(N(s.StepsPerFrame, 2)).Append(',')
+             .Append(N(s.StepMs, 2)).Append(',').Append(s.PathBacklog >= 0 ? s.PathBacklog.ToString(Inv) : "").Append(',')
+             .Append(s.PathHeadroom >= 0 ? s.PathHeadroom.ToString(Inv) : "").Append(',').Append(s.Limiter).Append(',')
+             .Append(N(s.Quality, 0)).Append(',')
+             .Append(s.State).Append(',').Append(s.Frames).Append(',')
              .Append(N(s.FrameMsAvg, 2)).Append(',').Append(N(s.FrameMsMax, 2)).Append(',')
              .Append(N(s.GameCores, 3)).Append(',').Append(N(s.SystemCpuPct, 1)).Append(',')
              .Append(N(s.PrivateMb, 0)).Append(',').Append(N(s.WorkingSetMb, 0)).Append(',').Append(N(s.PageFaultsPerSec, 0)).Append(',')

@@ -1,0 +1,179 @@
+using System;
+using System.Diagnostics;
+using Colossal.UI.Binding;
+using Game;
+using Game.UI;
+using PerformanceDetective.Controller;
+
+namespace PerformanceDetective.UI
+{
+    /// <summary>
+    /// Bridge to the in-game panel (React UI module in mod/PerformanceDetective/UI).
+    ///   performanceDetective.state   — JSON snapshot, rebuilt twice per second
+    ///   performanceDetective.command — "name" or "name:argument" from the panel
+    /// </summary>
+    public partial class DetectiveUISystem : UISystemBase
+    {
+        private const string Group = "performanceDetective";
+        private const double RefreshSeconds = 0.5;
+
+        private readonly Stopwatch m_Clock = Stopwatch.StartNew();
+        private double m_LastBuild = -10;
+        private string m_State = "{}";
+
+        public override GameMode gameMode => GameMode.Game;
+
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            AddUpdateBinding(new GetterValueBinding<string>(Group, "state", () => m_State));
+            AddBinding(new TriggerBinding<string>(Group, "command", OnCommand));
+        }
+
+        protected override void OnUpdate()
+        {
+            double now = m_Clock.Elapsed.TotalSeconds;
+            if (now - m_LastBuild >= RefreshSeconds)
+            {
+                m_LastBuild = now;
+                try { m_State = BuildState(); }
+                catch (Exception e) { Mod.Log.Warn("[SPC] Error: UI state: " + e.Message); }
+            }
+            base.OnUpdate();
+        }
+
+        private void OnCommand(string command)
+        {
+            try
+            {
+                var st = Mod.Settings;
+                var manager = Mod.Manager;
+                if (st == null || manager == null || string.IsNullOrEmpty(command)) return;
+                int colon = command.IndexOf(':');
+                string name = colon < 0 ? command : command.Substring(0, colon);
+                string arg = colon < 0 ? "" : command.Substring(colon + 1);
+                bool changedSettings = true;
+
+                switch (name)
+                {
+                    case "profile":
+                        if (int.TryParse(arg, out int p) && p >= 0 && p <= (int)Profile.Custom) st.ControllerProfile = p;
+                        break;
+                    case "enabled": st.ControllerEnabled = arg == "1"; break;
+                    case "adaptive": st.AdaptiveMode = arg == "1"; break;
+                    case "overlay": st.ShowOverlay = arg == "1"; break;
+                    case "minQuality":
+                        if (int.TryParse(arg, out int q)) st.MinimumQuality = Math.Max(20, Math.Min(100, q));
+                        break;
+                    case "targetSpeed":
+                        if (int.TryParse(arg, out int t)) st.TargetSpeedPercent = Math.Max(50, Math.Min(100, t));
+                        break;
+                    case "custom":
+                        {
+                            var parts = arg.Split('=');
+                            if (parts.Length == 2 && int.TryParse(parts[1], out int v)) st.SetCustomReduction(parts[0], v);
+                            break;
+                        }
+                    case "reset": st.ResetControllerDefaults(); break;
+                    case "capture": changedSettings = false; Mod.Detective?.CaptureNow(); break;
+                    case "copyReport": changedSettings = false; st.CopyReport = true; break;
+                    case "openFolder": changedSettings = false; st.OpenFolder = true; break;
+                    case "baseline": changedSettings = false; manager.StartCapture("baseline"); break;
+                    case "optimized": changedSettings = false; manager.StartCapture("optimized"); break;
+                    case "resetCompare": changedSettings = false; manager.ResetComparison(); break;
+                    default:
+                        changedSettings = false;
+                        Mod.Log.Warn("[SPC] Configuration: unknown UI command " + name);
+                        break;
+                }
+                if (changedSettings)
+                {
+                    st.ApplyAndSave();
+                    manager.Apply();
+                    Mod.Log.Info("[SPC] Configuration: " + command);
+                }
+                m_LastBuild = -10; // refresh the panel right away
+            }
+            catch (Exception e)
+            {
+                Mod.Log.Warn("[SPC] Error: command '" + command + "': " + e.Message);
+            }
+        }
+
+        private static string BuildState()
+        {
+            var st = Mod.Settings;
+            var m = Mod.Manager;
+            var d = Mod.Detective;
+            var s = d?.LastSample;
+            var j = new Json().BeginObject();
+            j.Prop("version", typeof(Mod).Assembly.GetName().Version.ToString(3));
+            j.Prop("inSession", d != null && d.InSession);
+
+            // Controller settings
+            j.Prop("enabled", st.ControllerEnabled).Prop("profile", st.ControllerProfile).Prop("adaptive", st.AdaptiveMode)
+             .Prop("overlay", st.ShowOverlay).Prop("minQuality", st.MinimumQuality).Prop("targetSpeed", st.TargetSpeedPercent)
+             .Prop("quality", m != null && !float.IsNaN(m.Quality) ? m.Quality : -1, 0)
+             .Prop("adaptiveNote", m?.AdaptiveNote ?? "");
+
+            // Live measurements
+            j.Prop("stability", m?.Stability ?? "unknown");
+            j.Prop("speedPct", m != null ? m.SmoothedSpeed * 100 : double.NaN, 1);
+            if (s != null)
+            {
+                j.Prop("selectedSpeed", s.SelectedSpeed, 1).Prop("fps", s.FrameMsAvg > 0 ? 1000 / s.FrameMsAvg : double.NaN, 1)
+                 .Prop("frameMs", s.FrameMsAvg, 1).Prop("stepMs", s.StepMs, 2).Prop("stepsPerFrame", s.StepsPerFrame, 2)
+                 .Prop("backlog", s.PathBacklog).Prop("headroom", s.PathHeadroom).Prop("limiter", s.Limiter)
+                 .Prop("gameCores", s.GameCores, 2).Prop("cpuPct", s.SystemCpuPct, 0).Prop("population", s.Population)
+                 .Prop("ramFreeGb", s.RamAvailMb / 1024, 1).Prop("gameMemGb", s.PrivateMb / 1024, 1).Prop("ramGb", s.RamTotalMb / 1024, 1)
+                 .Prop("detectorState", s.State);
+            }
+            j.Prop("preference", d?.PerformancePreference ?? "unknown");
+            j.Prop("stalls", d?.StallCount ?? 0).Prop("captures", d?.CaptureCount ?? 0);
+            var last = d?.LastStall;
+            if (last != null)
+                j.Name("lastStall").BeginObject().Prop("seconds", last.DurationSec, 1).Prop("minPct", last.MinRatio * 100, 0)
+                 .Prop("agoSeconds", d.SessionTime - last.EndT, 0).Prop("catchUp", last.CatchUpSeconds, 1).EndObject();
+
+            // What the controller is doing
+            j.Name("targets").BeginArray();
+            if (m != null)
+                foreach (var (target, reduction, active, _, _) in m.Controller.Status())
+                    j.BeginObject().Prop("key", target.Key).Prop("name", target.Name).Prop("effect", target.Effect)
+                     .Prop("reductionPct", reduction * 100, 0).Prop("active", active)
+                     .Prop("custom", st.GetCustomReduction(target.Key)).EndObject();
+            j.EndArray();
+            j.Name("unavailable").BeginArray();
+            if (m != null) foreach (var u in m.Controller.Unavailable) j.Value(u);
+            j.EndArray();
+
+            // 2-minute history for the graph
+            if (m != null)
+            {
+                int n = m.HistCount, start = ControllerManager.HistorySeconds - n;
+                j.Name("history").BeginObject();
+                j.Name("speed").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistSpeed[i] * 100, 0); j.EndArray();
+                j.Name("fps").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistFps[i], 0); j.EndArray();
+                j.Name("backlog").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistBacklog[i], 0); j.EndArray();
+                j.Name("quality").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistQuality[i], 0); j.EndArray();
+                j.Name("stall").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistStall[i]); j.EndArray();
+                j.EndObject();
+
+                j.Name("compare").BeginObject().Prop("running", m.CaptureKind).Prop("remaining", m.CaptureRemaining, 0);
+                WriteSummary(j, "baseline", m.Baseline);
+                WriteSummary(j, "optimized", m.Optimized);
+                j.EndObject();
+            }
+            return j.EndObject().ToString();
+        }
+
+        private static void WriteSummary(Json j, string name, CaptureSummary c)
+        {
+            if (c == null) return;
+            j.Name(name).BeginObject().Prop("profile", c.Profile).Prop("quality", c.Quality, 0).Prop("seconds", c.Seconds, 0)
+             .Prop("speedPct", c.SpeedPct, 1).Prop("fps", c.Fps, 1).Prop("stepMs", c.StepMs, 2).Prop("peakStepMs", c.PeakStepMs, 1)
+             .Prop("backlog", c.Backlog, 0).Prop("pathLimitedPct", c.PathLimitedPct, 0).Prop("gameCores", c.GameCores, 2)
+             .Prop("population", c.Population).EndObject();
+        }
+    }
+}

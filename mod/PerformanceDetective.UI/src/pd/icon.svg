@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- speed gauge with a magnifier: "performance detective" -->
+  <path d="M8 40a24 24 0 0 1 48 0" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M32 40 L45 24" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="32" cy="40" r="5" fill="#ffffff"/>
+  <circle cx="44" cy="48" r="9" fill="none" stroke="#ffffff" stroke-width="4"/>
+  <path d="M50.5 54.5 L58 62" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+</svg>

@@ -33,6 +33,19 @@
     <Reference Include="Unity.Burst"><Private>false</Private></Reference>
   </ItemGroup>
 
+  <!-- The toolchain's DeployWIP target recreates the deploy folder, so rebuild the UI module (React, ../PerformanceDetective.UI)
+       afterwards. Requires Node.js; run `npm install` in that folder once. -->
+  <PropertyGroup>
+    <UIProjectDir>$(MSBuildProjectDirectory)\..\PerformanceDetective.UI</UIProjectDir>
+  </PropertyGroup>
+  <Target Name="BuildUIModule" AfterTargets="DeployWIP" Condition="'$(NeedBuild)' AND Exists('$(UIProjectDir)\node_modules')">
+    <Message Text="Build UI module in $(UIProjectDir)" Importance="high" />
+    <Exec Command="npm run build" WorkingDirectory="$(UIProjectDir)" EnvironmentVariables="CSII_USERDATAPATH=$(UserDataPath)" />
+  </Target>
+  <Target Name="WarnMissingUIModule" AfterTargets="DeployWIP" Condition="'$(NeedBuild)' AND !Exists('$(UIProjectDir)\node_modules')">
+    <Warning Text="UI module not built: run 'npm install' in $(UIProjectDir) (Node.js required)." />
+  </Target>
+
   <ItemGroup>
     <Reference Update="System"><Private>false</Private></Reference>
     <Reference Update="System.Core"><Private>false</Private></Reference>
