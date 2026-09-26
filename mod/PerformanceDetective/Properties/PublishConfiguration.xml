@@ -1,0 +1,26 @@
+<Publish>
+	<!--Id must be set to update an existing mod: it is filled in after the first publish-->
+	<ModId Value="" />
+	<DisplayName Value="Performance Detective" />
+	<ShortDescription Value="Finds out why your city sputters: measures real simulation speed, detects slow-motion stalls and catch-up bursts, and writes a report you can give to any AI." />
+	<LongDescription>Performance Detective measures what actually happens when Cities: Skylines II runs in slow motion and then speeds up again.
+
+- Measures the real simulation speed (simulation ticks per second), not just FPS
+- Detects slow-motion stalls and the catch-up bursts that follow
+- Records game CPU, system CPU, memory and paging headroom, frame time, population and save events
+- Press Ctrl+Alt+M when you notice a slowdown to capture that moment
+- "Copy report for AI" puts a ready-made summary and prompt on your clipboard for ChatGPT, Claude, Gemini, a local model, or a forum post
+
+Nothing is sent anywhere. Logs are written to ModsData/PerformanceDetective in your Cities: Skylines II user folder.
+
+Open source (MIT): https://github.com/neosoft-nvm/Cities2Diag</LongDescription>
+	<Thumbnail Value="Properties/Thumbnail.png" />
+	<Screenshot Value="" />
+	<Tag Value="Code Mod" />
+	<ForumLink Value="https://github.com/neosoft-nvm/Cities2Diag" />
+	<ModVersion Value="0.1.0" />
+	<GameVersion Value="1.*" />
+	<Dependency Id="" />
+	<ChangeLog Value="First version: simulation-speed stall detection, capture key, reports for AI." />
+	<ExternalLink Type="github" Url="https://github.com/neosoft-nvm/Cities2Diag" />
+</Publish>
