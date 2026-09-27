@@ -67,6 +67,10 @@ export interface DetectiveState {
     running: boolean; finished: boolean; remaining: number; duration: number; steps: number; stepMs: number | null;
     error: string; savedTo: string; systems: { name: string; msPerStep: number; sharePct: number }[];
   };
+  assetPacks?: {
+    finished: boolean; error: string; savedTo: string; packs: number; unused: number; unusedPrefabs: number;
+    cityObjects: number; seconds: number; list: { name: string; id: string; prefabs: number }[];
+  };
   sourcesPerMin?: number;
   sources?: { name: string; perMin: number; workPct: number; successPct: number | null; tip: string | null }[];
   threads?: { available: boolean; current: number; default: number; workers: number; extra: number; maxExtra: number };

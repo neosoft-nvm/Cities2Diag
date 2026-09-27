@@ -69,6 +69,7 @@ export const DetectivePanel = () => {
               <AutoTuneSection s={s} />
               <SpeedSection s={s} />
               <CpuBreakdownSection s={s} />
+              <AssetPacksSection s={s} />
               <SourcesSection s={s} />
               <GraphSection s={s} />
               <MetricsSection s={s} />
@@ -190,6 +191,37 @@ const CpuBreakdownSection = ({ s }: { s: DetectiveState }) => {
         {tuneRunning
           ? <span className={styles.metricLabel}>Available when Auto-Tune has finished.</span>
           : <Button className={styles.button} onSelect={() => command("cpuBreakdown")}>{b.finished ? "Run again (1 min)" : "Run CPU breakdown (1 min)"}</Button>}
+      </div>
+    </div>
+  );
+};
+
+const AssetPacksSection = ({ s }: { s: DetectiveState }) => {
+  const a = s.assetPacks;
+  if (!a) return null;
+  return (
+    <div className={styles.tuneCard}>
+      <b>Unused asset packs</b>
+      <div className={styles.note} style={{ marginTop: "2rem" }}>
+        Lists subscribed asset packs with none of their buildings, props, roads or decals placed in this city. Each loaded
+        asset adds to the game's start-up time and memory use. Disabling a pack only affects future games, so check that your
+        other cities don't use it. Takes a few seconds; nothing is changed.
+      </div>
+      {a.error && <div className={styles.finding} style={{ borderLeftColor: "#e5484d" }}>{a.error}</div>}
+      {a.finished && (
+        <div className={styles.note} style={{ marginTop: "4rem" }}>
+          {a.unused} of {a.packs} asset packs are not placed in this city ({a.unusedPrefabs.toLocaleString()} assets).
+          {a.list.length < a.unused ? ` Largest ${a.list.length} shown; ` : " "}the full list is in the session folder (asset_packs_*.csv).
+        </div>
+      )}
+      {a.finished && a.list.map(p => (
+        <div key={p.id + p.name} className={styles.targetHead}>
+          <span>{p.name}</span>
+          <span className={styles.metricLabel}>{p.prefabs.toLocaleString()} assets{p.id ? ` · ${p.id}` : ""}</span>
+        </div>
+      ))}
+      <div className={styles.row} style={{ marginTop: "6rem" }}>
+        <Button className={styles.button} onSelect={() => command("scanAssets")}>{a.finished ? "Scan again" : "Find unused asset packs"}</Button>
       </div>
     </div>
   );

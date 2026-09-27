@@ -76,6 +76,13 @@ namespace PerformanceDetective
         /// <summary>Which game systems generate pathfinding work (read-only statistics from the game).</summary>
         public readonly PathfindSources Sources = new PathfindSources();
         public readonly CpuBreakdown Breakdown = new CpuBreakdown();
+        public readonly AssetUsage AssetPacks = new AssetUsage();
+
+        /// <summary>Panel button: which asset packs are placed in this city (takes a few seconds, reads only).</summary>
+        public void ScanAssetPacks()
+        {
+            if (m_InSession) AssetPacks.Scan(EntityManager, World.GetOrCreateSystemManaged<Game.Prefabs.PrefabSystem>(), m_SessionDir);
+        }
         private double m_LastSourcesT = -10;
 
         // Read by the UI system (main thread).

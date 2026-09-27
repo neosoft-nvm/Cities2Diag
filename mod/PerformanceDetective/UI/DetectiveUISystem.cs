@@ -80,6 +80,7 @@ namespace PerformanceDetective.UI
                         break;
                     case "cpuBreakdown": changedSettings = false; Mod.Detective?.Breakdown.Start(); break;
                     case "cancelCpuBreakdown": changedSettings = false; Mod.Detective?.Breakdown.Cancel(); break;
+                    case "scanAssets": changedSettings = false; Mod.Detective?.ScanAssetPacks(); break;
                     case "cancelAutoTune": changedSettings = false; manager.CancelAutoTune(); break;
                     case "panel": changedSettings = false; PanelOpen = arg == "1"; break;
                     case "togglePanel": changedSettings = false; PanelOpen = !PanelOpen; break;
@@ -203,6 +204,25 @@ namespace PerformanceDetective.UI
                     j.BeginObject().Prop("name", CpuBreakdown.ShortName(e.Name))
                      .Prop("msPerStep", e.TotalMs / Math.Max(1, b.Steps), 2)
                      .Prop("sharePct", total > 0 ? 100 * e.TotalMs / total : 0, 1).EndObject();
+                }
+                j.EndArray().EndObject();
+            }
+
+            // Asset packs not placed in this city
+            if (d != null)
+            {
+                var a = d.AssetPacks;
+                int unused = 0, unusedPrefabs = 0;
+                foreach (var p in a.Unused) { unused++; unusedPrefabs += p.Prefabs; }
+                j.Name("assetPacks").BeginObject().Prop("finished", a.Finished).Prop("error", a.Error).Prop("savedTo", a.SavedTo)
+                 .Prop("packs", a.Packs.Count).Prop("unused", unused).Prop("unusedPrefabs", unusedPrefabs)
+                 .Prop("cityObjects", a.CityObjects).Prop("seconds", a.Seconds, 1);
+                j.Name("list").BeginArray();
+                int shown = 0;
+                foreach (var p in a.Unused)
+                {
+                    if (shown++ >= 40) break;
+                    j.BeginObject().Prop("name", p.Name).Prop("id", p.ModId).Prop("prefabs", p.Prefabs).EndObject();
                 }
                 j.EndArray().EndObject();
             }
