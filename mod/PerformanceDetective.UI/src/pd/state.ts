@@ -63,6 +63,10 @@ export interface DetectiveState {
     blockRemaining: number; totalRemaining: number; settling: boolean; summary: string;
     candidates: { name: string; gain: number | null; clear: boolean; promising: boolean; comparisons: number }[];
   };
+  cpuBreakdown?: {
+    running: boolean; finished: boolean; remaining: number; duration: number; steps: number; stepMs: number | null;
+    error: string; savedTo: string; systems: { name: string; msPerStep: number; sharePct: number }[];
+  };
   sourcesPerMin?: number;
   sources?: { name: string; perMin: number; workPct: number; successPct: number | null; tip: string | null }[];
   threads?: { available: boolean; current: number; default: number; workers: number; extra: number; maxExtra: number };

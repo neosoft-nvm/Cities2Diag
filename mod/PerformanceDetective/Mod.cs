@@ -32,6 +32,9 @@ namespace PerformanceDetective
             // Controller gate: first system of every simulation step.
             updateSystem.UpdateBefore<ControllerGateSystem>(SystemUpdatePhase.GameSimulation);
 
+            // End of every simulation step (closes the CPU breakdown's step bracket).
+            updateSystem.UpdateAfter<StepEndSystem>(SystemUpdatePhase.GameSimulation);
+
             // In-game panel and overlay.
             updateSystem.UpdateAt<UI.DetectiveUISystem>(SystemUpdatePhase.UIUpdate);
         }
@@ -41,6 +44,7 @@ namespace PerformanceDetective
             Log.Info("[SPC] Initialization: OnDispose");
             Manager?.Controller.ReleaseAll("mod unloaded");
             Manager?.Threads.Restore();
+            Detective?.Breakdown.Cancel();
             if (Settings != null)
             {
                 Settings.UnregisterInOptionsUI();

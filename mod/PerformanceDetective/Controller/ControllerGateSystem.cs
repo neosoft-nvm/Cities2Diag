@@ -20,6 +20,7 @@ namespace PerformanceDetective.Controller
 
         protected override void OnUpdate()
         {
+            CpuBreakdown.StepBegin();
             var manager = Mod.Manager;
             if (manager == null) return;
             manager.Controller.Resolve(World);

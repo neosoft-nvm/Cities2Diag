@@ -68,6 +68,7 @@ export const DetectivePanel = () => {
               <FindingsSection s={s} />
               <AutoTuneSection s={s} />
               <SpeedSection s={s} />
+              <CpuBreakdownSection s={s} />
               <SourcesSection s={s} />
               <GraphSection s={s} />
               <MetricsSection s={s} />
@@ -139,6 +140,54 @@ const AutoTuneSection = ({ s }: { s: DetectiveState }) => {
       <div className={styles.row} style={{ marginTop: "6rem" }}>
         <Button className={styles.button} onSelect={() => command("autoTune:quick")}>Quick check (≈21 min)</Button>
         <Button className={styles.button} onSelect={() => command("autoTune:thorough")}>Thorough — keeps what helps (≈39 min)</Button>
+      </div>
+    </div>
+  );
+};
+
+const CpuBreakdownSection = ({ s }: { s: DetectiveState }) => {
+  const b = s.cpuBreakdown;
+  if (!b) return null;
+  const tuneRunning = !!s.autoTune?.running;
+  if (b.running) {
+    const done = 1 - b.remaining / Math.max(1, b.duration);
+    return (
+      <div className={styles.tuneCard}>
+        <div className={classNames(styles.row, styles.spaceBetween)}>
+          <b>CPU breakdown running</b>
+          <span className={styles.metricLabel}>about {mmss(b.remaining)} left</span>
+        </div>
+        <div className={styles.qualityBar}><div className={styles.qualityFill} style={{ width: `${Math.round(done * 100)}%` }} /></div>
+        <div className={styles.note}>
+          Timing every simulation system. The city runs slower during this minute; that is expected and ends with the test.
+        </div>
+        <Button className={styles.chip} onSelect={() => command("cancelCpuBreakdown")}>Stop</Button>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.tuneCard}>
+      <b>CPU breakdown</b>
+      <div className={styles.note} style={{ marginTop: "2rem" }}>
+        Shows which parts of the simulation use the most CPU time per step. Takes one minute of normal play; the city runs
+        slower during that minute. Pathfinding runs separately and is not included.
+      </div>
+      {b.error && <div className={styles.finding} style={{ borderLeftColor: "#e5484d" }}>{b.error}</div>}
+      {b.finished && (
+        <div className={styles.note} style={{ marginTop: "4rem" }}>
+          {b.steps.toLocaleString()} steps measured, {fmt(b.stepMs, 1)} ms per step while timing.
+        </div>
+      )}
+      {b.finished && b.systems.map(x => (
+        <div key={x.name} className={styles.targetHead}>
+          <span>{x.name}</span>
+          <span className={styles.metricLabel}>{fmt(x.msPerStep, 2)} ms · {fmt(x.sharePct, 1)}%</span>
+        </div>
+      ))}
+      <div className={styles.row} style={{ marginTop: "6rem" }}>
+        {tuneRunning
+          ? <span className={styles.metricLabel}>Available when Auto-Tune has finished.</span>
+          : <Button className={styles.button} onSelect={() => command("cpuBreakdown")}>{b.finished ? "Run again (1 min)" : "Run CPU breakdown (1 min)"}</Button>}
       </div>
     </div>
   );

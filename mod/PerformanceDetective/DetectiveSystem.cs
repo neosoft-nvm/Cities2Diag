@@ -74,6 +74,7 @@ namespace PerformanceDetective
 
         /// <summary>Which game systems generate pathfinding work (read-only statistics from the game).</summary>
         public readonly PathfindSources Sources = new PathfindSources();
+        public readonly CpuBreakdown Breakdown = new CpuBreakdown();
         private double m_LastSourcesT = -10;
 
         // Read by the UI system (main thread).
@@ -174,6 +175,7 @@ namespace PerformanceDetective
             float stepSeconds = m_Simulation.frameDuration;
             if (stepSeconds > 0) s.StepMs = stepSeconds * 1000.0;
             MeasurePathfinding(s, frameIndex);
+            Breakdown.Tick(!loading && s.SelectedSpeed > 0 && steps > 0 ? dt : 0, m_SessionDir);
             if (!loading && s.T - m_LastSourcesT >= 2)
             {
                 m_LastSourcesT = s.T;
@@ -407,6 +409,7 @@ namespace PerformanceDetective
             if (!m_InSession) return;
             m_InSession = false;
             Mod.Manager?.OnSessionEnd();
+            Breakdown.Cancel();
             foreach (var c in m_PendingCaptures) { c.EndT = c.StartT; FinishEvent(c); }
             m_PendingCaptures.Clear();
             HideNotification();
