@@ -60,7 +60,7 @@ export interface DetectiveState {
   findings?: { level: "problem" | "info" | "good"; text: string }[];
   autoTune?: {
     running: boolean; finished: boolean; current: string; block: number; blocks: number;
-    blockRemaining: number; totalRemaining: number; settling: boolean; summary: string;
+    blockRemaining: number; totalRemaining: number; settling: boolean; mayStopEarly: boolean; summary: string; advice: string;
     candidates: { name: string; gain: number | null; clear: boolean; promising: boolean; comparisons: number }[];
   };
   sourcesPerMin?: number;

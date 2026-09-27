@@ -108,7 +108,7 @@ const AutoTuneSection = ({ s }: { s: DetectiveState }) => {
       <div className={styles.tuneCard}>
         <div className={classNames(styles.row, styles.spaceBetween)}>
           <b>Auto-Tune running</b>
-          <span className={styles.metricLabel}>about {mmss(t.totalRemaining)} left</span>
+          <span className={styles.metricLabel}>{t.mayStopEarly ? "at most" : "about"} {mmss(t.totalRemaining)} left</span>
         </div>
         <div className={styles.qualityBar}><div className={styles.qualityFill} style={{ width: `${Math.round(done * 100)}%` }} /></div>
         <div className={styles.note}>
@@ -125,9 +125,11 @@ const AutoTuneSection = ({ s }: { s: DetectiveState }) => {
       <div className={styles.note} style={{ marginTop: "2rem" }}>
         Tests options aimed at the pathfinding bottleneck (more pathfinding threads, fewer taxi and home searches), alternating
         with the normal game so rush hours don't skew the result. The quick check reports what looks promising; the thorough
-        test measures each option twice and keeps only what clearly helps. You just leave the city running.
+        test keeps only what clearly helps and stops early when the first round already gives a clear answer. You just
+        leave the city running. Once it has run for a city, you only need it again after the city has grown a lot.
       </div>
-      {t.finished && t.summary && <div className={styles.finding} style={{ borderLeftColor: "#4aa3ff" }}>{t.summary}</div>}
+      {t.advice && <div className={styles.finding} style={{ borderLeftColor: "#4aa3ff" }}>{t.advice}</div>}
+      {t.finished && t.summary &&<div className={styles.finding} style={{ borderLeftColor: "#4aa3ff" }}>{t.summary}</div>}
       {t.finished && t.candidates.map(c => (
         <div key={c.name} className={styles.targetHead}>
           <span>{c.name}</span>
@@ -137,8 +139,8 @@ const AutoTuneSection = ({ s }: { s: DetectiveState }) => {
         </div>
       ))}
       <div className={styles.row} style={{ marginTop: "6rem" }}>
-        <Button className={styles.button} onSelect={() => command("autoTune:quick")}>Quick check (≈21 min)</Button>
-        <Button className={styles.button} onSelect={() => command("autoTune:thorough")}>Thorough — keeps what helps (≈39 min)</Button>
+        <Button className={styles.button} onSelect={() => command("autoTune:quick")}>Quick check (≈20 min)</Button>
+        <Button className={styles.button} onSelect={() => command("autoTune:thorough")}>Thorough — keeps what helps (≈20–38 min)</Button>
       </div>
     </div>
   );

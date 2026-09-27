@@ -36,6 +36,7 @@ namespace PerformanceDetective
         private Game.Pathfind.PathfindResultSystem m_PathfindResults;
         private NotificationUISystem m_Notifications;
         private EntityQuery m_PopulationQuery;
+        private CityConfigurationSystem m_CityConfig;
 
         private readonly Stopwatch m_Clock = new Stopwatch();
         private readonly StallDetector m_Detector = new StallDetector();
@@ -83,6 +84,7 @@ namespace PerformanceDetective
         public StallEvent LastStall { get { for (int i = m_Events.Count - 1; i >= 0; i--) if (m_Events[i].Kind == "stall") return m_Events[i]; return null; } }
         public int CaptureCount => m_CaptureCount;
         public string PerformancePreference => m_System?.PerformancePreference ?? "unknown";
+        public string CityName { get { try { return m_CityConfig?.cityName ?? ""; } catch (Exception) { return ""; } } }
         public double SessionTime => m_InSession ? m_Clock.Elapsed.TotalSeconds - m_SessionStart : 0;
 
         /// <summary>Samples of the last <paramref name="seconds"/> seconds (oldest first).</summary>
@@ -110,6 +112,8 @@ namespace PerformanceDetective
             try { m_PathfindResults = World.GetOrCreateSystemManaged<Game.Pathfind.PathfindResultSystem>(); }
             catch (Exception e) { Mod.Log.Warn("[SPC] Compatibility: pathfinding status unavailable: " + e.Message); }
             m_Notifications = World.GetOrCreateSystemManaged<NotificationUISystem>();
+            try { m_CityConfig = World.GetOrCreateSystemManaged<CityConfigurationSystem>(); }
+            catch (Exception e) { Mod.Log.Warn("[SPC] Compatibility: city name unavailable: " + e.Message); }
             m_PopulationQuery = GetEntityQuery(ComponentType.ReadOnly<Population>());
             m_Writer = new BackgroundWriter();
             m_Clock.Start();
