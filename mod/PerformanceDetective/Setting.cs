@@ -59,6 +59,12 @@ namespace PerformanceDetective
         [SettingsUISlider(min = 0, max = 6, step = 1, unit = Unit.kInteger)]
         public int PathfindExtraThreads { get; set; }
 
+        // Last thorough Auto-Tune (tells the player when running it again is worthwhile).
+        [SettingsUIHidden] public string LastTuneCity { get; set; } = "";
+        [SettingsUIHidden] public int LastTunePopulation { get; set; } = -1;
+        [SettingsUIHidden] public string LastTuneDate { get; set; } = "";
+        [SettingsUIHidden] public string LastTuneKept { get; set; } = "";
+
         [SettingsUISection(kControllerSection, kAdaptiveGroup)]
         public bool AdaptiveMode { get; set; }
 

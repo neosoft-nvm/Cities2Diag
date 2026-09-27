@@ -1,7 +1,8 @@
 # Where we left off — 2026-09-27
 
 ## State
-* **Performance Detective 0.3.1** is installed in the local Mods folder.
+* **Performance Detective 0.4.1** (CPU breakdown + faster Auto-Tune) is built and installed in the local Mods folder.
+  Backup of 0.3.1 and its settings: `ModsData\PerformanceDetective\backup_0.3.1`.
 * Thorough Auto-Tune on **Southwell** finished (2026-09-26 evening, 13 blocks):
   normal game 15.0 % simulation speed; **pathfinding threads 3 → 5: +11.3 points** (+14.0 and +8.7 in the two
   comparisons), queue −868 → **kept and saved**. Taxi dispatch −75 % and home searches −75 %: +1.1 points each,
@@ -12,11 +13,11 @@
 * PC: i7-6700K, 16 GB RAM (game ~25 GB in Southwell → paging), GTX 1080 + GTX 960 (2 GB), 4K desktop at 30 Hz.
   Lossless Scaling installed; it can only smooth the picture, not speed up the simulation.
 
-## In progress: 0.4.0 — CPU breakdown (branch `cpu-breakdown`)
+## 0.4.0 — CPU breakdown (merged into main in 0.4.1)
 * Panel button "Run CPU breakdown (1 min)": times every simulation system per step (Harmony patch on
   SystemBase.Update, installed only during the minute; jobs are completed per system so worker time is counted).
   Results in the panel, the log and `cpu_breakdown_*.csv` in the session folder.
-* Not yet compiled (needs the game's assemblies): build on the PC, then run it once in Southwell.
+* Compiles with the game's assemblies; not yet run in game — run it once in Southwell.
 
 ## Auto-Tune takeaways
 * 39-minute runs are not needed routinely: the result is saved. Rerun only after large city growth or new options.

@@ -177,7 +177,8 @@ namespace PerformanceDetective.UI
                 j.Name("autoTune").BeginObject().Prop("running", t.Running).Prop("finished", t.Finished)
                  .Prop("current", t.CurrentName).Prop("block", t.BlockIndex + 1).Prop("blocks", t.BlockCount)
                  .Prop("blockRemaining", t.BlockRemaining, 0).Prop("totalRemaining", t.TotalRemaining, 0)
-                 .Prop("settling", t.Settling).Prop("summary", t.Summary);
+                 .Prop("settling", t.Settling).Prop("mayStopEarly", t.MayStopEarly).Prop("summary", t.Summary)
+                 .Prop("advice", t.Running ? "" : m.TuneAdvice());
                 j.Name("candidates").BeginArray();
                 foreach (var c in t.Candidates)
                     j.BeginObject().Prop("name", c.Name).Prop("gain", c.MeanDiff, 1).Prop("clear", c.Clear).Prop("promising", c.Promising)

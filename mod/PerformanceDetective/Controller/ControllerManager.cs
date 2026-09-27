@@ -101,7 +101,7 @@ namespace PerformanceDetective.Controller
             if (Threads.Available && Threads.MaxExtra > 0)
             {
                 int extra = Math.Min(2, Threads.MaxExtra);
-                candidates.Add(new AutoTune.Candidate { Name = $"Pathfinding threads {Threads.Default} → {Threads.Default + extra}", Reductions = { [ThreadsKey] = extra } });
+                candidates.Add(new AutoTune.Candidate { Name = $"Pathfinding threads {Threads.Default} → {Threads.Default + extra}", Reductions = { [ThreadsKey] = extra }, FastSettle = true });
             }
             candidates.Add(new AutoTune.Candidate { Name = "Taxi dispatch 75% less often", Reductions = { ["taxi"] = 0.75f } });
             candidates.Add(new AutoTune.Candidate { Name = "Home searches 75% less often", Reductions = { ["homeSearch"] = 0.75f } });
@@ -133,6 +133,7 @@ namespace PerformanceDetective.Controller
 
         private void OnAutoTuneFinished()
         {
+            if (Tune.Thorough) RememberResult();
             var best = Tune.Best;
             if (best == null)
             {
@@ -149,6 +150,34 @@ namespace PerformanceDetective.Controller
             st.ApplyAndSave();
             m_BeforeTune = null;
             Apply();
+        }
+
+        /// <summary>The city grows this much before the last thorough result is worth re-checking.</summary>
+        private const double RetuneGrowth = 0.3;
+
+        private void RememberResult()
+        {
+            var st = Mod.Settings;
+            st.LastTuneCity = Mod.Detective?.CityName ?? "";
+            st.LastTunePopulation = Mod.Detective?.LastSample?.Population ?? -1;
+            st.LastTuneDate = DateTime.Now.ToString("yyyy-MM-dd");
+            st.LastTuneKept = Tune.Best?.Name ?? "";
+            // Saved together with the settings Auto-Tune keeps or restores.
+        }
+
+        /// <summary>Whether another thorough Auto-Tune is worth the time for the loaded city ("" when there is no earlier result).</summary>
+        public string TuneAdvice()
+        {
+            var st = Mod.Settings;
+            string city = Mod.Detective?.CityName ?? "";
+            int pop = Mod.Detective?.LastSample?.Population ?? -1;
+            if (string.IsNullOrEmpty(st.LastTuneDate) || city != st.LastTuneCity || st.LastTunePopulation <= 0 || pop <= 0) return "";
+            string kept = !string.IsNullOrEmpty(st.LastTuneKept) ?"kept " + st.LastTuneKept : "nothing helped clearly";
+            double growth = (double)pop / st.LastTunePopulation - 1;
+            string last = $"The thorough Auto-Tune already ran for this city on {st.LastTuneDate} at {st.LastTunePopulation:N0} people ({kept}).";
+            return growth < RetuneGrowth
+                ? $"{last} No need to run it again until the city has grown by about {RetuneGrowth:P0} (now {growth:+0%;-0%;0%}) — just play."
+                : $"{last} The city has grown {growth:+0%} since then, so running it again is worthwhile.";
         }
 
         private static float MaxQuality() => Profiles.Quality((Profile)Mod.Settings.ControllerProfile);
