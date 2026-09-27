@@ -58,6 +58,9 @@
     <Reference Update="System"><Private>false</Private></Reference>
     <Reference Update="System.Core"><Private>false</Private></Reference>
     <Reference Update="System.Data"><Private>false</Private></Reference>
+    <!-- Reading save metadata (zip) for the asset investigator; both ship with the game's Mono. -->
+    <Reference Include="System.IO.Compression"><Private>false</Private></Reference>
+    <Reference Include="System.IO.Compression.FileSystem"><Private>false</Private></Reference>
   </ItemGroup>
 
 </Project>

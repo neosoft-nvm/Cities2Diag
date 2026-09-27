@@ -78,10 +78,17 @@ namespace PerformanceDetective
         public readonly CpuBreakdown Breakdown = new CpuBreakdown();
         public readonly AssetUsage AssetPacks = new AssetUsage();
 
-        /// <summary>Panel button: which asset packs are placed in this city (takes a few seconds, reads only).</summary>
-        public void ScanAssetPacks()
+        public readonly AssetInvestigator Investigator = new AssetInvestigator();
+
+        /// <summary>
+        /// Panel button: count objects per asset pack in this city (main thread, a few seconds), then check which of all
+        /// saves use each enabled pack (background). Reads only.
+        /// </summary>
+        public void InvestigateAssets()
         {
-            if (m_InSession) AssetPacks.Scan(EntityManager, World.GetOrCreateSystemManaged<Game.Prefabs.PrefabSystem>(), m_SessionDir);
+            if (!m_InSession || Investigator.Running) return;
+            AssetPacks.Scan(EntityManager, World.GetOrCreateSystemManaged<Game.Prefabs.PrefabSystem>(), m_SessionDir);
+            Investigator.Start(CityName, AssetPacks, m_SessionDir);
         }
         private double m_LastSourcesT = -10;
 

@@ -67,9 +67,10 @@ export interface DetectiveState {
     running: boolean; finished: boolean; remaining: number; duration: number; steps: number; stepMs: number | null;
     error: string; savedTo: string; systems: { name: string; msPerStep: number; sharePct: number }[];
   };
-  assetPacks?: {
-    finished: boolean; error: string; savedTo: string; packs: number; unused: number; unusedPrefabs: number;
-    cityObjects: number; seconds: number; list: { name: string; id: string; prefabs: number }[];
+  assets?: {
+    running: boolean; finished: boolean; error: string; savedTo: string; saves: number; enabledMods: number; city: string;
+    cityScanned: boolean; barelyLimit: number;
+    rows: AssetRow[];
   };
   sourcesPerMin?: number;
   sources?: { name: string; perMin: number; workPct: number; successPct: number | null; tip: string | null }[];
@@ -80,7 +81,12 @@ export interface DetectiveState {
   compare?: { running: string | null; remaining: number; baseline?: Summary; optimized?: Summary };
 }
 
-const state$ = bindValue<string>(GROUP, "state", "{}");
+export type AssetGroup = "noSave" | "otherCities" | "barely" | "used";
+export interface AssetRow {
+  id: string; name: string; mb: number; group: AssetGroup; kind: string; placed: number; saves: number; cities: string;
+}
+
+const state$ =bindValue<string>(GROUP, "state", "{}");
 
 /** Whether the panel is open. Kept on the C# side so Ctrl+Alt+P and the Options button can open it too. */
 export const panelOpen$ = bindValue<boolean>(GROUP, "panelOpen", false);

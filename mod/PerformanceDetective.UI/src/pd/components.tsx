@@ -1,10 +1,11 @@
 import { FloatingButton, Panel, Button, Scrollable } from "cs2/ui";
 import { useValue } from "cs2/api";
 import classNames from "classnames";
+import { useState } from "react";
 import icon from "./icon.svg";
 import styles from "./detective.module.scss";
 import {
-  DetectiveState, Summary, Target, PROFILES, command, fmt, limiterText, panelOpen$, speedColor, stabilityColor, useDetective,
+  AssetGroup, AssetRow, DetectiveState, Summary, Target, PROFILES, command, fmt, limiterText, panelOpen$, speedColor, stabilityColor, useDetective,
 } from "./state";
 
 // ------------------------------------------------------------------ toolbar button
@@ -112,7 +113,7 @@ export const DetectivePanel = () => {
               <AutoTuneSection s={s} />
               <SpeedSection s={s} />
               <CpuBreakdownSection s={s} />
-              <AssetPacksSection s={s} />
+              <AssetInvestigatorSection s={s} />
               <SourcesSection s={s} />
               <GraphSection s={s} />
               <MetricsSection s={s} />
@@ -239,32 +240,82 @@ const CpuBreakdownSection = ({ s }: { s: DetectiveState }) => {
   );
 };
 
-const AssetPacksSection = ({ s }: { s: DetectiveState }) => {
-  const a = s.assetPacks;
+const ASSET_GROUPS: { key: AssetGroup; label: string; hint: string }[] = [
+  { key: "noSave", label: "Used by no save", hint: "None of your saves contains anything from these packs." },
+  { key: "otherCities", label: "Only other cities", hint: "Used by other saves, but nothing from them is in this city." },
+  { key: "barely", label: "Barely used here", hint: "In this city, but with only a handful of objects." },
+];
+
+const fmtMb = (mb: number) => (mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(mb < 10 ? 1 : 0)} MB`);
+
+const AssetInvestigatorSection = ({ s }: { s: DetectiveState }) => {
+  const a = s.assets;
+  const [group, setGroup] = useState<AssetGroup>("noSave");
+  const [kind, setKind] = useState("");
   if (!a) return null;
+  const inGroup = a.rows.filter(r => r.group === group);
+  const kinds = Array.from(new Set(inGroup.map(r => r.kind).filter(k => k))).sort();
+  const shown = inGroup.filter(r => !kind || r.kind === kind);
+  const total = (rows: AssetRow[]) => rows.reduce((t, r) => t + r.mb, 0);
+  const allMb = total(a.rows);
   return (
     <div className={styles.tuneCard}>
-      <b>Unused asset packs</b>
+      <b>Asset investigator</b>
       <div className={styles.note} style={{ marginTop: "2rem" }}>
-        Lists subscribed asset packs with none of their buildings, props, roads or decals placed in this city. Each loaded
-        asset adds to the game's start-up time and memory use. Disabling a pack only affects future games, so check that your
-        other cities don't use it. Takes a few seconds; nothing is changed.
+        Every enabled asset pack is loaded at start-up, whether a city uses it or not. This checks all your saves (without
+        loading them) and counts the objects from each pack in this city, so you can see which packs you could disable in
+        Skyve or your playset. Nothing is changed here.
       </div>
       {a.error && <div className={styles.finding} style={{ borderLeftColor: "#e5484d" }}>{a.error}</div>}
       {a.finished && (
-        <div className={styles.note} style={{ marginTop: "4rem" }}>
-          {a.unused} of {a.packs} asset packs are not placed in this city ({a.unusedPrefabs.toLocaleString()} assets).
-          {a.list.length < a.unused ? ` Largest ${a.list.length} shown; ` : " "}the full list is in the session folder (asset_packs_*.csv).
-        </div>
+        <>
+          <div className={styles.note} style={{ marginTop: "4rem" }}>
+            {a.rows.length} enabled asset packs ({fmtMb(allMb)}) · {a.saves} saves checked
+            {a.cityScanned ? ` · objects counted in ${a.city}` : ""}
+          </div>
+          <div className={styles.row} style={{ marginTop: "4rem" }}>
+            {ASSET_GROUPS.map(g => {
+              const rows = a.rows.filter(r => r.group === g.key);
+              return (
+                <Button key={g.key} className={classNames(styles.chip, group === g.key && styles.chipSelected)}
+                  onSelect={() => { setGroup(g.key); setKind(""); }}>
+                  {g.label}: {rows.length} · {fmtMb(total(rows))}
+                </Button>
+              );
+            })}
+          </div>
+          <div className={styles.note}>{ASSET_GROUPS.find(g => g.key === group)?.hint}
+            {group === "barely" ? ` (${a.barelyLimit} or fewer).` : ""}</div>
+          {kinds.length > 1 && (
+            <div className={styles.row}>
+              <Button className={classNames(styles.chip, !kind && styles.chipSelected)} onSelect={() => setKind("")}>All types</Button>
+              {kinds.map(k => (
+                <Button key={k} className={classNames(styles.chip, kind === k && styles.chipSelected)} onSelect={() => setKind(k)}>{k}</Button>
+              ))}
+            </div>
+          )}
+          {shown.slice(0, 60).map(r => (
+            <div key={r.id} className={styles.targetHead}>
+              <span>{r.name}{r.kind ? ` · ${r.kind}` : ""}</span>
+              <span className={styles.metricLabel}>
+                {fmtMb(r.mb)}
+                {group === "otherCities" ? ` · ${r.cities}` : ""}
+                {group === "barely" ? ` · ${r.placed} object${r.placed === 1 ? "" : "s"}` : ""}
+              </span>
+            </div>
+          ))}
+          {shown.length > 60 && <div className={styles.note}>… and {shown.length - 60} more (full table in the session folder).</div>}
+        </>
       )}
-      {a.finished && a.list.map(p => (
-        <div key={p.id + p.name} className={styles.targetHead}>
-          <span>{p.name}</span>
-          <span className={styles.metricLabel}>{p.prefabs.toLocaleString()} assets{p.id ? ` · ${p.id}` : ""}</span>
-        </div>
-      ))}
       <div className={styles.row} style={{ marginTop: "6rem" }}>
-        <Button className={styles.button} onSelect={() => command("scanAssets")}>{a.finished ? "Scan again" : "Find unused asset packs"}</Button>
+        {a.running
+          ? <span className={styles.metricLabel}>Checking your saves…</span>
+          : <Button className={styles.button} onSelect={() => command("investigateAssets")}>{a.finished ? "Check again" : "Investigate asset packs"}</Button>}
+        {a.finished && shown.length > 0 && (
+          <Button className={styles.button} onSelect={() => command(`copyAssets:${group}${kind ? "|" + kind : ""}`)}>
+            Copy this list ({shown.length})
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -80,7 +80,20 @@ namespace PerformanceDetective.UI
                         break;
                     case "cpuBreakdown": changedSettings = false; Mod.Detective?.Breakdown.Start(); break;
                     case "cancelCpuBreakdown": changedSettings = false; Mod.Detective?.Breakdown.Cancel(); break;
-                    case "scanAssets": changedSettings = false; Mod.Detective?.ScanAssetPacks(); break;
+                    case "investigateAssets": changedSettings = false; Mod.Detective?.InvestigateAssets(); break;
+                    case "copyAssets":
+                        {
+                            changedSettings = false;
+                            var rows = Mod.Detective?.Investigator.Rows;
+                            if (rows == null) break;
+                            // arg: "<group>" or "<group>|<type>", as filtered in the panel
+                            var parts = arg.Split('|');
+                            string type = parts.Length > 1 ? parts[1] : "";
+                            var pick = rows.FindAll(r => InGroup(r, parts[0]) && (type.Length == 0 || r.Kind == type));
+                            UnityEngine.GUIUtility.systemCopyBuffer = AssetInvestigator.ToText(pick);
+                            Mod.Log.Info($"[SPC] Asset investigator: copied {pick.Count} packs ({arg})");
+                            break;
+                        }
                     case "cancelAutoTune": changedSettings = false; manager.CancelAutoTune(); break;
                     case "panel": changedSettings = false; PanelOpen = arg == "1"; break;
                     case "togglePanel": changedSettings = false; PanelOpen = !PanelOpen; break;
@@ -128,6 +141,20 @@ namespace PerformanceDetective.UI
             catch (Exception e)
             {
                 Mod.Log.Warn("[SPC] Error: command '" + command + "': " + e.Message);
+            }
+        }
+
+        /// <summary>Panel groups: noSave = no save uses it; otherCities = only other cities; barely = ≤ 10 objects here.</summary>
+        public const int BarelyUsedObjects = 10;
+
+        private static bool InGroup(AssetInvestigator.Row r, string group)
+        {
+            switch (group)
+            {
+                case "noSave": return r.Cities.Count == 0 && !r.UsedHere;
+                case "otherCities": return r.Cities.Count > 0 && !r.UsedHere;
+                case "barely": return r.UsedHere && r.PlacedHere >= 0 && r.PlacedHere <= BarelyUsedObjects;
+                default: return true;
             }
         }
 
@@ -208,21 +235,22 @@ namespace PerformanceDetective.UI
                 j.EndArray().EndObject();
             }
 
-            // Asset packs not placed in this city
+            // Asset investigator: enabled asset packs, which saves use them, objects in this city
             if (d != null)
             {
-                var a = d.AssetPacks;
-                int unused = 0, unusedPrefabs = 0;
-                foreach (var p in a.Unused) { unused++; unusedPrefabs += p.Prefabs; }
-                j.Name("assetPacks").BeginObject().Prop("finished", a.Finished).Prop("error", a.Error).Prop("savedTo", a.SavedTo)
-                 .Prop("packs", a.Packs.Count).Prop("unused", unused).Prop("unusedPrefabs", unusedPrefabs)
-                 .Prop("cityObjects", a.CityObjects).Prop("seconds", a.Seconds, 1);
-                j.Name("list").BeginArray();
-                int shown = 0;
-                foreach (var p in a.Unused)
+                var inv = d.Investigator;
+                j.Name("assets").BeginObject().Prop("running", inv.Running).Prop("finished", inv.Finished)
+                 .Prop("error", inv.Error.Length > 0 ? inv.Error : d.AssetPacks.Error).Prop("savedTo", inv.SavedTo)
+                 .Prop("saves", inv.SavesChecked).Prop("enabledMods", inv.EnabledMods).Prop("city", d.CityName)
+                 .Prop("cityScanned", d.AssetPacks.Finished).Prop("barelyLimit", BarelyUsedObjects);
+                j.Name("rows").BeginArray();
+                foreach (var r in inv.Rows)
                 {
-                    if (shown++ >= 40) break;
-                    j.BeginObject().Prop("name", p.Name).Prop("id", p.ModId).Prop("prefabs", p.Prefabs).EndObject();
+                    string group = InGroup(r, "noSave") ? "noSave" : InGroup(r, "otherCities") ? "otherCities" : InGroup(r, "barely") ? "barely" : "used";
+                    j.BeginObject().Prop("id", r.Id).Prop("name", r.Name).Prop("mb", r.SizeMb, 1).Prop("group", group)
+                     .Prop("kind", r.Kind).Prop("placed", r.PlacedHere).Prop("saves", r.Cities.Count)
+                     .Prop("cities", r.Cities.Count <= 3 ? string.Join(", ", r.Cities) : string.Join(", ", r.Cities.GetRange(0, 3)) + $" +{r.Cities.Count - 3}")
+                     .EndObject();
                 }
                 j.EndArray().EndObject();
             }
