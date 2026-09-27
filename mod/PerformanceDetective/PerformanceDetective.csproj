@@ -6,7 +6,7 @@
     <Configurations>Debug;Release</Configurations>
     <AssemblyName>PerformanceDetective</AssemblyName>
     <RootNamespace>PerformanceDetective</RootNamespace>
-    <Version>0.3.1</Version>
+    <Version>0.4.0</Version>
     <!-- Mod information used when publishing to Paradox Mods -->
     <PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
   </PropertyGroup>
@@ -31,6 +31,11 @@
     <Reference Include="Unity.Collections"><Private>false</Private></Reference>
     <Reference Include="Unity.Mathematics"><Private>false</Private></Reference>
     <Reference Include="Unity.Burst"><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <!-- Harmony: used only while a CPU breakdown runs (patched on start, removed at the end). Copied next to the mod DLL. -->
+  <ItemGroup>
+    <PackageReference Include="Lib.Harmony" Version="2.2.2" />
   </ItemGroup>
 
   <!-- The toolchain's DeployWIP target recreates the deploy folder, so rebuild the UI module (React, ../PerformanceDetective.UI)

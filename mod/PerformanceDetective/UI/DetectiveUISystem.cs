@@ -73,7 +73,13 @@ namespace PerformanceDetective.UI
 
                 switch (name)
                 {
-                    case "autoTune": changedSettings = false; manager.StartAutoTune(arg == "thorough"); break;
+                    case "autoTune":
+                        changedSettings = false;
+                        if (Mod.Detective != null && Mod.Detective.Breakdown.Running) break; // would skew both measurements
+                        manager.StartAutoTune(arg == "thorough");
+                        break;
+                    case "cpuBreakdown": changedSettings = false; Mod.Detective?.Breakdown.Start(); break;
+                    case "cancelCpuBreakdown": changedSettings = false; Mod.Detective?.Breakdown.Cancel(); break;
                     case "cancelAutoTune": changedSettings = false; manager.CancelAutoTune(); break;
                     case "panel": changedSettings = false; PanelOpen = arg == "1"; break;
                     case "togglePanel": changedSettings = false; PanelOpen = !PanelOpen; break;
@@ -176,6 +182,27 @@ namespace PerformanceDetective.UI
                 foreach (var c in t.Candidates)
                     j.BeginObject().Prop("name", c.Name).Prop("gain", c.MeanDiff, 1).Prop("clear", c.Clear).Prop("promising", c.Promising)
                      .Prop("comparisons", c.Diffs.Count).EndObject();
+                j.EndArray().EndObject();
+            }
+
+            // CPU breakdown: share of each simulation step per game system
+            if (d != null)
+            {
+                var b = d.Breakdown;
+                j.Name("cpuBreakdown").BeginObject().Prop("running", b.Running).Prop("finished", b.Finished)
+                 .Prop("remaining", b.Remaining, 0).Prop("duration", CpuBreakdown.DurationSeconds, 0)
+                 .Prop("steps", b.Steps).Prop("stepMs", b.StepMs, 2).Prop("error", b.Error).Prop("savedTo", b.SavedTo);
+                j.Name("systems").BeginArray();
+                double total = 0;
+                foreach (var e in b.Result) total += e.TotalMs;
+                int shown = 0;
+                foreach (var e in b.Result)
+                {
+                    if (shown++ >= 12) break;
+                    j.BeginObject().Prop("name", CpuBreakdown.ShortName(e.Name))
+                     .Prop("msPerStep", e.TotalMs / Math.Max(1, b.Steps), 2)
+                     .Prop("sharePct", total > 0 ? 100 * e.TotalMs / total : 0, 1).EndObject();
+                }
                 j.EndArray().EndObject();
             }
 

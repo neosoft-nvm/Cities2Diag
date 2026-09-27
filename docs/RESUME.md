@@ -1,30 +1,29 @@
-# Where we left off — 2026-09-26
+# Where we left off — 2026-09-27
 
 ## State
-* **Performance Detective 0.3.1** is built, installed in the local Mods folder and pushed (commit 87ad2aa).
-* Mod settings reset to defaults (Maximum Accuracy, no reductions). Backup of the previous file:
-  `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\PerformanceDetective.coc.bak`.
-* Save backups of the cities were made by the player before controller testing.
+* **Performance Detective 0.3.1** is installed in the local Mods folder.
+* Thorough Auto-Tune on **Southwell** finished (2026-09-26 evening, 13 blocks):
+  normal game 15.0 % simulation speed; **pathfinding threads 3 → 5: +11.3 points** (+14.0 and +8.7 in the two
+  comparisons), queue −868 → **kept and saved**. Taxi dispatch −75 % and home searches −75 %: +1.1 points each,
+  inside the 7-point natural swing of the baseline blocks → no effect.
+* After the change (33 min of play): ~23 % speed, pathfinding queue ~400 (median 125) instead of ~1,750.
+* The CPU is now the ceiling: game uses ~6.9 of 8 threads, system CPU ~94 %, ~8 FPS (128 ms frames).
+  Game has 7 job workers, default 3 pathfinding threads; more threads are unlikely to help with no CPU left.
+* PC: i7-6700K, 16 GB RAM (game ~25 GB in Southwell → paging), GTX 1080 + GTX 960 (2 GB), 4K desktop at 30 Hz.
+  Lossless Scaling installed; it can only smooth the picture, not speed up the simulation.
 
-## Next step (player)
-1. Start CS2, load **Southwell**, press **Ctrl+Alt+P**.
-2. Auto-Tune → **Thorough — keeps what helps (≈39 min)**; leave the city running at one speed, camera still.
-3. Tell Claude when it has finished; results are read from
-   `...\Cities Skylines II\Logs\PerformanceDetective.Mod.log` (lines with "Auto-Tune") and the session `samples.csv`
-   under `...\ModsData\PerformanceDetective\Sessions\`.
+## In progress: 0.4.0 — CPU breakdown (branch `cpu-breakdown`)
+* Panel button "Run CPU breakdown (1 min)": times every simulation system per step (Harmony patch on
+  SystemBase.Update, installed only during the minute; jobs are completed per system so worker time is counted).
+  Results in the panel, the log and `cpu_breakdown_*.csv` in the session folder.
+* Not yet compiled (needs the game's assemblies): build on the PC, then run it once in Southwell.
 
-## What we know so far (Southwell, ~250k population, i7-6700K 8 threads, 16 GB RAM, GTX 1080)
-* Simulation at 1× runs at ~13–25 % of target speed; **pathfinding holds it back 100 % of the time**
-  (queue 650–2,000 requests, 1 simulation step per rendered frame at ~12 FPS).
-* The CPU is not full (game ~5 of 8 threads) while the game gives pathfinding only half of the job workers →
-  "extra pathfinding threads" is the most promising lever (untested in game).
-* Quick Auto-Tune run (0.3.0) was inconclusive: natural swings (13–25 %) exceed the effects, and ending the
-  home-search reduction appeared to cause a burst (carry-over). 0.3.1 fixes the method (90 s settling, 2 comparisons).
-* Low FPS separately caps simulation speed (max 2 steps/frame at 1× → ≤ ~40 % at 12 FPS).
-* The game allocates ~25 GB on 16 GB RAM in Southwell: continuous paging, not fixable by the mod.
+## Auto-Tune takeaways
+* 39-minute runs are not needed routinely: the result is saved. Rerun only after large city growth or new options.
+* Ideas to shorten it: stop early on obvious results, remember results per city, 45 s settling for thread tests,
+  leave small-effect options out of the default run.
 
 ## Open ideas
-* Pathfinding-sources panel: check which source dominates in Southwell (taxi / home searches / parking).
-* Graphics/LOD test to raise FPS (raises the simulation-speed cap).
+* More RAM (32 GB) is probably the cheapest real gain in Southwell.
 * Before sharing publicly: test on other cities/PCs, compatibility with traffic mods, Paradox Mods publishing.
-* Roadmap v1.1 (panel) done; remaining roadmap items in docs/ROADMAP.md.
+* Remaining roadmap items in docs/ROADMAP.md.
