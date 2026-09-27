@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using HarmonyLib;
 using Unity.Entities;
@@ -39,7 +40,9 @@ namespace PerformanceDetective
         private static CpuBreakdown s_Active;
         private static readonly double s_MsPerTick = 1000.0 / Stopwatch.Frequency;
 
-        private Harmony m_Harmony;
+        // object, not Harmony: 0Harmony is provided by other mods at runtime. Keeping its types out of fields and out of
+        // methods that always run means the mod still loads (breakdown unavailable) if no mod provides it.
+        private object m_Harmony;
         private readonly Dictionary<Type, Entry> m_Entries = new Dictionary<Type, Entry>();
         private bool m_InStep;
         private int m_Depth;
@@ -73,11 +76,7 @@ namespace PerformanceDetective
             Finished = false;
             try
             {
-                m_Harmony = new Harmony(HarmonyId);
-                var target = AccessTools.Method(typeof(SystemBase), nameof(SystemBase.Update));
-                m_Harmony.Patch(target,
-                    prefix: new HarmonyMethod(typeof(CpuBreakdown), nameof(Prefix)),
-                    postfix: new HarmonyMethod(typeof(CpuBreakdown), nameof(Postfix)));
+                m_Harmony = Patch();
             }
             catch (Exception e)
             {
@@ -163,9 +162,23 @@ namespace PerformanceDetective
             Unpatch();
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static object Patch()
+        {
+            var harmony = new Harmony(HarmonyId);
+            var target = AccessTools.Method(typeof(SystemBase), nameof(SystemBase.Update));
+            harmony.Patch(target,
+                prefix: new HarmonyMethod(typeof(CpuBreakdown), nameof(Prefix)),
+                postfix: new HarmonyMethod(typeof(CpuBreakdown), nameof(Postfix)));
+            return harmony;
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void UnpatchAll(object harmony) => ((Harmony)harmony).UnpatchAll(HarmonyId);
+
         private void Unpatch()
         {
-            try { m_Harmony?.UnpatchAll(HarmonyId); }
+            try { if (m_Harmony != null) UnpatchAll(m_Harmony); }
             catch (Exception e) { Mod.Log.Warn("[SPC] Error: CPU breakdown unpatch: " + e.Message); }
             m_Harmony = null;
         }

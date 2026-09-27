@@ -1,8 +1,10 @@
 # Where we left off — 2026-09-27
 
 ## State
-* **Performance Detective 0.4.1** (CPU breakdown + faster Auto-Tune) is built and installed in the local Mods folder.
-  Backup of 0.3.1 and its settings: `ModsData\PerformanceDetective\backup_0.3.1`.
+* **Performance Detective 0.4.2** (CPU breakdown + faster Auto-Tune) is built and installed in the local Mods folder.
+  0.4.2 stops shipping 0Harmony.dll: the bundled 2.2.2 loaded first and broke mods needing Harmony 2.3
+  (NA Highway Signs: MissingMethodException every frame). Harmony is compile-only now; never bundle it.
+  Backup of 0.3.1 and its settings: `F:\VscodeWin\Cities2Diag-backups\` (never under LocalLow: the game loads it as a mod).
 * Thorough Auto-Tune on **Southwell** finished (2026-09-26 evening, 13 blocks):
   normal game 15.0 % simulation speed; **pathfinding threads 3 → 5: +11.3 points** (+14.0 and +8.7 in the two
   comparisons), queue −868 → **kept and saved**. Taxi dispatch −75 % and home searches −75 %: +1.1 points each,

@@ -6,7 +6,7 @@
     <Configurations>Debug;Release</Configurations>
     <AssemblyName>PerformanceDetective</AssemblyName>
     <RootNamespace>PerformanceDetective</RootNamespace>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <!-- Mod information used when publishing to Paradox Mods -->
     <PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
   </PropertyGroup>
@@ -33,9 +33,12 @@
     <Reference Include="Unity.Burst"><Private>false</Private></Reference>
   </ItemGroup>
 
-  <!-- Harmony: used only while a CPU breakdown runs (patched on start, removed at the end). Copied next to the mod DLL. -->
+  <!-- Harmony: used only while a CPU breakdown runs (patched on start, removed at the end). Compile-only: 0Harmony.dll is
+       NOT shipped. The runtime binds every mod to the first 0Harmony it loads, and mods in the local Mods folder load first,
+       so a bundled 2.2.2 replaced the newer Harmony other mods need (MissingMethodException every frame). The breakdown
+       uses whichever Harmony another mod provides (only 2.2-level API) and reports itself unavailable if there is none. -->
   <ItemGroup>
-    <PackageReference Include="Lib.Harmony" Version="2.2.2" />
+    <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <!-- The toolchain's DeployWIP target recreates the deploy folder, so rebuild the UI module (React, ../PerformanceDetective.UI)
