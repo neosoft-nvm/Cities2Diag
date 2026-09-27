@@ -361,7 +361,7 @@ $accent: #4aa3ff;
   position: absolute;
   right: 12rem;
   top: 60rem;
-  width: 250rem;
+  width: 270rem;
   padding: 8rem 10rem;
   background-color: $bg;
   border-radius: 6rem;
@@ -394,6 +394,38 @@ $accent: #4aa3ff;
 .overlayLine {
   color: $dim;
   margin-top: 2rem;
+}
+
+// Mini monitor: speed bars (one per second) with a white tick at the ceiling the frame rate allows.
+.miniGraph {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 44rem;
+  margin: 3rem 0 4rem 0;
+  background-color: $bg2;
+  border-radius: 3rem;
+}
+
+.miniCol {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+
+  .bar {
+    flex: none;
+    margin: 0 0.5rem;
+  }
+}
+
+.miniCeiling {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.5rem;
+  background-color: rgba(255, 255, 255, 0.75);
 }
 
 .promising { color: #f0b429; }

@@ -264,7 +264,7 @@ namespace PerformanceDetective.UI
                 int n = m.HistCount, start = ControllerManager.HistorySeconds - n;
                 j.Name("history").BeginObject();
                 j.Name("speed").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistSpeed[i] * 100, 0); j.EndArray();
-                j.Name("fps").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistFps[i], 0); j.EndArray();
+                j.Name("fps").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistFps[i], 1); j.EndArray();
                 j.Name("backlog").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistBacklog[i], 0); j.EndArray();
                 j.Name("quality").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistQuality[i], 0); j.EndArray();
                 j.Name("stall").BeginArray(); for (int i = start; i < ControllerManager.HistorySeconds; i++) j.Value(m.HistStall[i]); j.EndArray();

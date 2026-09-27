@@ -26,23 +26,66 @@ export const ToolbarButton = () => {
 
 // ------------------------------------------------------------------ overlay
 
+/** At 1× the game runs at most round(speed × 2) simulation steps per rendered frame (max 8): FPS caps the speed. */
+const fpsCeiling = (fps: number | null | undefined, selected: number | null | undefined): number | null => {
+  if (fps == null || isNaN(fps) || !selected || selected <= 0) return null;
+  const maxSteps = Math.max(1, Math.min(8, Math.round(selected * 2)));
+  return (100 * maxSteps * fps) / (60 * selected);
+};
+
+const average = (v: (number | null)[]) => {
+  const x = v.filter((n): n is number => n != null && !isNaN(n));
+  return x.length ? x.reduce((a, b) => a + b, 0) / x.length : null;
+};
+
+const MINI_SECONDS = 60;
+
+/** Mini monitor: simulation speed against the ceiling that the frame rate allows, over the last minute. */
 export const Overlay = () => {
   const s = useDetective();
   if (!s || !s.overlay || !s.inSession) return null;
-  const color = stabilityColor(s.stability);
-  const lim = limiterText(s);
+  const h = s.history;
+  const speed = h ? h.speed.slice(-MINI_SECONDS) : [];
+  const fps = h ? h.fps.slice(-MINI_SECONDS) : [];
+  const ceil = fpsCeiling(s.fps, s.selectedSpeed);
+  const ceilings = fps.map(f => fpsCeiling(f, s.selectedSpeed));
+  const fpsLimited = ceil != null && ceil < 100 && s.speedPct != null && s.speedPct >= ceil * 0.9;
+  const title = fpsLimited ? "Limited by frame rate" : limiterText(s).title;
+  // Change: last 15 s against the first 15 s of the two-minute history.
+  const all = h ? h.speed : [];
+  const now = average(all.slice(-15)), before = all.length >= 90 ? average(all.slice(0, 15)) : null;
+  const delta = now != null && before != null ? now - before : null;
+  const top = Math.max(100, ...speed.map(v => v ?? 0), ...ceilings.map(v => v ?? 0));
+  const scale = Math.min(top, 150); // keep the lower range readable; ceilings above the top are clipped
   return (
-    <div className={styles.overlay} style={{ borderLeftColor: color }}>
-      <div className={styles.overlayTitle}>Simulation performance</div>
+    <div className={styles.overlay} style={{ borderLeftColor: stabilityColor(s.stability) }}>
+      <div className={classNames(styles.row, styles.spaceBetween)}>
+        <span className={styles.overlayTitle}>Simulation</span>
+        <span className={styles.overlayTitle}>{fmt(s.selectedSpeed, 0)}× · last {MINI_SECONDS} s</span>
+      </div>
       <div className={styles.overlayBig}>
         <div className={styles.overlayNumber} style={{ color: speedColor(s.speedPct) }}>{fmt(s.speedPct)}%</div>
-        <div className={styles.heroLabel}>of {fmt(s.selectedSpeed, 0)}× · {s.stability}</div>
+        {delta != null && Math.abs(delta) >= 0.5 && (
+          <div className={delta > 0 ? styles.better : styles.worse} style={{ marginLeft: "6rem" }}>
+            {delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta), 1)} pts / 2 min
+          </div>
+        )}
       </div>
-      <div>FPS {fmt(s.fps)} · {fmt(s.stepMs, 1)} ms/step</div>
-      <div className={styles.overlayLine}>{lim.title}</div>
+      <div className={styles.miniGraph}>
+        {speed.map((v, i) => {
+          const c = ceilings[i];
+          return (
+            <div key={i} className={styles.miniCol}>
+              <div className={styles.bar} style={{ height: `${Math.max(1, Math.min(100, ((v ?? 0) / scale) * 100))}%`, backgroundColor: v == null ? "transparent" : speedColor(v) }} />
+              {c != null && c < scale && <div className={styles.miniCeiling} style={{ bottom: `${(c / scale) * 100}%` }} />}
+            </div>
+          );
+        })}
+      </div>
       <div className={styles.overlayLine}>
-        Quality {s.quality >= 0 ? fmt(s.quality) + "%" : "custom"} · Adaptive {s.adaptive ? "ON" : "OFF"}
+        FPS {fmt(s.fps, 1)} · ceiling {ceil == null ? "–" : ceil >= 100 ? "none" : fmt(ceil) + "%"} · queue {s.backlog != null && s.backlog >= 0 ? s.backlog.toLocaleString() : "–"}
       </div>
+      <div className={styles.overlayLine} style={{ color: fpsLimited ? "#f0b429" : undefined }}>{title}</div>
     </div>
   );
 };
@@ -522,7 +565,7 @@ const ActionsSection = ({ s }: { s: DetectiveState }) => (
       <Button className={styles.button} onSelect={() => command("copyReport")}>Copy report for AI</Button>
       <Button className={styles.button} onSelect={() => command("openFolder")}>Open log folder</Button>
       <Button className={classNames(styles.chip, s.overlay && styles.chipSelected)} onSelect={() => command(`overlay:${s.overlay ? 0 : 1}`)}>
-        Overlay {s.overlay ? "ON" : "OFF"}
+        Mini monitor {s.overlay ? "ON" : "OFF"}
       </Button>
     </div>
     <div className={styles.footer}>
