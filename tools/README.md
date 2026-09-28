@@ -35,3 +35,9 @@ Import it in Skyve (Playsets → Import), activate it and start the game from Sk
 
 `SaveModList.ps1 -Save <path to .cok>` writes `<save> - mods used by save` as .txt (ID tab name), .csv and .json (Skyve playset
 format) to the Desktop. Only what the save records: mods whose content it contains. Code-only mods are not recorded by saves.
+
+## TestPlayset (fastest start for one save)
+
+`TestPlayset.ps1 -Save <path to .cok> [-Keep <ids>]` writes `<save> test playset.json` for Skyve: only the mods the save needs
+(its missing-content list) plus every mod those require (from Skyve's mod cache). Code mods that keep their own data in the
+save are not included unless you add them with -Keep; save the city with your full playset.

@@ -36,7 +36,7 @@ $names = @{}
 $fs = [IO.File]::Open((Join-Path $UserData 'Logs\Modding.log'), 'Open', 'Read', 'ReadWrite, Delete')
 $logReader = New-Object IO.StreamReader($fs)
 while ($null -ne ($line = $logReader.ReadLine())) {
-    if ($line -match '^\s*- (.+?) \((\d+)\)\s*$') { $names[$Matches[2]] = ($Matches[1] -replace ' v[\w\.\-]*$', '') }
+    if ($line -match '^\s*- (.+?) \((\d+)\)\s*$') { $names[$Matches[2]] = ($Matches[1] -replace ' v[\w\.\-\+]*$', '') }
 }
 $logReader.Close()
 $ver = @{}

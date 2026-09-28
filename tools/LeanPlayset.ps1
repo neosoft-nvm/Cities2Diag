@@ -51,7 +51,7 @@ foreach ($o in $order) {
         $tiny++
     }
     $n++
-    $mods[$id] = [ordered]@{ Source = ''; Id = $id; Name = ($o[1] -replace ' v[\w\.\-]*$', ''); Version = "$($ver[$id])"; LoadOrder = $n
+    $mods[$id] = [ordered]@{ Source = ''; Id = $id; Name = ($o[1] -replace ' v[\w\.\-\+]*$', ''); Version = "$($ver[$id])"; LoadOrder = $n
                              IsEnabled = $true; IsVersionLocked = $false; PlaysetId = '' }
 }
 $playset = [ordered]@{
