@@ -9,7 +9,11 @@ Everything below is committed and pushed to `main` on GitHub (neosoft-nvm/Cities
   CPU breakdown, **mini monitor** (toggle "Mini monitor ON/OFF" in the panel), **asset investigator** (panel button
   "Investigate asset packs": all saves + objects per pack in the loaded city; tabs "Used by no save", "Only other
   cities", "Barely used here"; type filter; "Copy this list").
-* Not yet exercised in game: the asset investigator and the mini monitor (0.4.3 loaded fine on 2026-09-28 11:33).
+* Both panels are movable (game draggable panels, positions kept in localStorage). The mini monitor is compact (220 wide:
+  speed + 2-min change + limit badge FPS/PATHS/CPU/FULL, graph, fps/cap/queue line, '+1 fps = +x pts' hint); UI files
+  installed 2026-09-28 19:05, first shown at the next game start. Asset investigator not yet exercised in game.
+* Skyve: 'Basic, Working Mods' (10601310) is a subscribed playset the player doesn't own, so Paradox refuses adding mods
+  (SHARED_PLAYSET_NOT_EDITABLE in ModsData\Skyve\Logs\SkyveApp.log); fix = duplicate it in Skyve and use the copy.
 * Mod settings (`PerformanceDetective.coc`): controller on, Custom profile, 2 extra pathfinding threads, tourists/events/
   taxi reductions 25 %, mini monitor on; last Auto-Tune recorded for Starford. Copy in `F:\VscodeWin\Cities2Diag-backups\`.
 
