@@ -357,43 +357,63 @@ $accent: #4aa3ff;
 
 // ---------- overlay ----------
 // Mini monitor: a small draggable game panel (placed by the game; position remembered in position.ts).
+// Compact layout: speed, change and limiter on one line; graph; three stats on one line; a hint only when FPS-bound.
 .monitorPanel {
   position: absolute;
-  width: 290rem;
+  width: 220rem;
   pointer-events: auto;
 }
 
-.overlay {
-  padding: 6rem 10rem 8rem 10rem;
+// Left edge coloured by what limits the simulation (amber FPS, blue pathfinding, red CPU, green full speed).
+.monBody {
+  padding: 4rem 8rem 5rem 8rem;
   background-color: $bg;
-  border-left: 4rem solid #8a94a3;
+  border-left: 3rem solid #8a94a3;
   color: $text;
-  font-size: 12.5rem;
+  font-size: 11.5rem;
 }
 
-.overlayTitle {
-  font-size: 10.5rem;
-  letter-spacing: 1rem;
-  color: $dim;
-  text-transform: uppercase;
-}
-
-.overlayBig {
+.monTop {
   display: flex;
   flex-direction: row;
-  align-items: flex-end;
-  margin: 2rem 0 3rem 0;
+  align-items: center;
 }
 
-.overlayNumber {
-  font-size: 26rem;
+.monSpeed {
+  font-size: 22rem;
   font-weight: bold;
   line-height: 1;
 }
 
-.overlayLine {
+.monDelta {
+  margin-left: 5rem;
+  font-size: 11.5rem;
+}
+
+.monLimit {
+  margin-left: auto;
+  padding: 1rem 5rem;
+  border: 1rem solid #8a94a3;
+  border-radius: 3rem;
+  font-size: 10.5rem;
+  font-weight: bold;
+  letter-spacing: 0.5rem;
+  text-transform: uppercase;
+}
+
+.monStats {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
   color: $dim;
-  margin-top: 2rem;
+
+  b { color: $text; }
+}
+
+.monHint {
+  margin-top: 1rem;
+  color: #f0b429;
+  font-size: 10.5rem;
 }
 
 // Mini monitor: speed bars (one per second) with a white tick at the ceiling the frame rate allows.
@@ -401,8 +421,8 @@ $accent: #4aa3ff;
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  height: 44rem;
-  margin: 3rem 0 4rem 0;
+  height: 30rem;
+  margin: 3rem 0 3rem 0;
   background-color: $bg2;
   border-radius: 3rem;
 }

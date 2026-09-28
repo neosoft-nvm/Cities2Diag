@@ -54,42 +54,53 @@ export const Overlay = () => {
   const ceil = fpsCeiling(s.fps, s.selectedSpeed);
   const ceilings = fps.map(f => fpsCeiling(f, s.selectedSpeed));
   const fpsLimited = ceil != null && ceil < 100 && s.speedPct != null && s.speedPct >= ceil * 0.9;
-  const title = fpsLimited ? "Limited by frame rate" : limiterText(s).title;
+  // What limits the simulation, as one short word, and its colour.
+  const limit = fpsLimited ? { text: "FPS", color: "#f0b429" }
+    : s.limiter === "pathfinding" ? { text: "Paths", color: "#4aa3ff" }
+    : s.limiter === "cpu" ? { text: "CPU", color: "#e5484d" }
+    : s.limiter === "none" ? { text: "Full", color: "#4fbf6a" }
+    : { text: s.stability === "loading" ? "Load" : "Pause", color: "#8a94a3" };
   // Change: last 15 s against the first 15 s of the two-minute history.
   const all = h ? h.speed : [];
   const now = average(all.slice(-15)), before = all.length >= 90 ? average(all.slice(0, 15)) : null;
   const delta = now != null && before != null ? now - before : null;
   const top = Math.max(100, ...speed.map(v => v ?? 0), ...ceilings.map(v => v ?? 0));
   const scale = Math.min(top, 150); // keep the lower range readable; ceilings above the top are clipped
-  // A draggable game panel (drag the title bar); the close button turns the monitor off.
+  // What one more frame per second is worth while the frame rate is the limit (at 1×: 2 steps × 100 / 60 ≈ 3.3 points).
+  const perFps = fpsLimited && s.selectedSpeed ? (100 * Math.max(1, Math.min(8, Math.round(s.selectedSpeed * 2)))) / (60 * s.selectedSpeed) : null;
+  const queue = s.backlog != null && s.backlog >= 0 ? (s.backlog >= 10000 ? `${Math.round(s.backlog / 1000)}k` : s.backlog.toLocaleString()) : "–";
+  // A compact draggable game panel (drag the title bar); the close button turns the monitor off.
   return (
     <Panel draggable initialPosition={loadPosition("monitor", { x: 0.99, y: 0.06 })} className={styles.monitorPanel}
-      header={<span>Simulation · {fmt(s.selectedSpeed, 0)}× · last {MINI_SECONDS} s</span>} onClose={() => command("overlay:0")}>
-    <div className={styles.overlay} style={{ borderLeftColor: stabilityColor(s.stability) }}>
-      <div className={styles.overlayBig}>
-        <div className={styles.overlayNumber} style={{ color: speedColor(s.speedPct) }}>{fmt(s.speedPct)}%</div>
-        {delta != null && Math.abs(delta) >= 0.5 && (
-          <div className={delta > 0 ? styles.better : styles.worse} style={{ marginLeft: "6rem" }}>
-            {delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta), 1)} pts / 2 min
-          </div>
-        )}
+      header={<span>Sim {fmt(s.selectedSpeed, 0)}×</span>} onClose={() => command("overlay:0")}>
+      <div className={styles.monBody} style={{ borderLeftColor: limit.color }}>
+        <div className={styles.monTop}>
+          <span className={styles.monSpeed} style={{ color: speedColor(s.speedPct) }}>{fmt(s.speedPct)}%</span>
+          {delta != null && Math.abs(delta) >= 0.5 && (
+            <span className={classNames(styles.monDelta, delta > 0 ? styles.better : styles.worse)}>
+              {delta > 0 ? "▲" : "▼"}{fmt(Math.abs(delta), 1)}
+            </span>
+          )}
+          <span className={styles.monLimit} style={{ color: limit.color, borderColor: limit.color }}>{limit.text}</span>
+        </div>
+        <div className={styles.miniGraph}>
+          {speed.map((v, i) => {
+            const c = ceilings[i];
+            return (
+              <div key={i} className={styles.miniCol}>
+                <div className={styles.bar} style={{ height: `${Math.max(1, Math.min(100, ((v ?? 0) / scale) * 100))}%`, backgroundColor: v == null ? "transparent" : speedColor(v) }} />
+                {c != null && c < scale && <div className={styles.miniCeiling} style={{ bottom: `${(c / scale) * 100}%` }} />}
+              </div>
+            );
+          })}
+        </div>
+        <div className={styles.monStats}>
+          <span><b>{fmt(s.fps, 1)}</b> fps</span>
+          <span>cap <b>{ceil == null ? "–" : ceil >= 100 ? "none" : fmt(ceil) + "%"}</b></span>
+          <span>queue <b>{queue}</b></span>
+        </div>
+        {perFps != null && <div className={styles.monHint}>+1 fps ≈ +{fmt(perFps, 1)} pts</div>}
       </div>
-      <div className={styles.miniGraph}>
-        {speed.map((v, i) => {
-          const c = ceilings[i];
-          return (
-            <div key={i} className={styles.miniCol}>
-              <div className={styles.bar} style={{ height: `${Math.max(1, Math.min(100, ((v ?? 0) / scale) * 100))}%`, backgroundColor: v == null ? "transparent" : speedColor(v) }} />
-              {c != null && c < scale && <div className={styles.miniCeiling} style={{ bottom: `${(c / scale) * 100}%` }} />}
-            </div>
-          );
-        })}
-      </div>
-      <div className={styles.overlayLine}>
-        FPS {fmt(s.fps, 1)} · ceiling {ceil == null ? "–" : ceil >= 100 ? "none" : fmt(ceil) + "%"} · queue {s.backlog != null && s.backlog >= 0 ? s.backlog.toLocaleString() : "–"}
-      </div>
-      <div className={styles.overlayLine} style={{ color: fpsLimited ? "#f0b429" : undefined }}>{title}</div>
-    </div>
     </Panel>
   );
 };
