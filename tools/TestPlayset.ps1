@@ -23,6 +23,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+# "-Keep 1,2,3" arrives as one string when run with powershell -File.
+$Keep = @($Keep | ForEach-Object { "$_" -split '[,;\s]+' } | Where-Object { $_ -match '^\d+$' })
 
 # --- What the save needs ---
 $zip = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $Save).Path)
