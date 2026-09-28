@@ -24,3 +24,9 @@ Double-click `SaveInspector.cmd` (or run `SaveInspector.ps1`), pick a save, and 
 It reads only the small metadata entry inside the save; the game does not need to be running and nothing is changed.
 Results go to the Desktop (`cs2_save_mods_<city>.csv`, `cs2_save_unused_<city>.txt`); the unused list is also copied to
 the clipboard for building a playset in Skyve. `AssetAudit.ps1` does the same check across all saves at once.
+
+## LeanPlayset (Skyve playset for one save)
+
+`LeanPlayset.ps1 -Save <path to .cok>` writes `<City> lean playset.json` (Skyve's playset export format) to the Desktop:
+your currently enabled mods minus the asset packs that save does not use. Code mods and packs under 2 MB are always kept.
+Import it in Skyve (Playsets → Import), activate it and start the game from Skyve. Read-only for the game.
