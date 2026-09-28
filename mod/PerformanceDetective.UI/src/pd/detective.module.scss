@@ -23,10 +23,9 @@ $accent: #4aa3ff;
   pointer-events: none;
 }
 
+// Placed and moved by the game's draggable panel (drag the title bar); position remembered in position.ts.
 .panel {
   position: absolute;
-  left: 60rem;
-  top: 70rem;
   width: 470rem;
   max-height: 86vh;
   pointer-events: auto;
@@ -357,18 +356,19 @@ $accent: #4aa3ff;
 }
 
 // ---------- overlay ----------
-.overlay {
+// Mini monitor: a small draggable game panel (placed by the game; position remembered in position.ts).
+.monitorPanel {
   position: absolute;
-  right: 12rem;
-  top: 60rem;
-  width: 270rem;
-  padding: 8rem 10rem;
+  width: 290rem;
+  pointer-events: auto;
+}
+
+.overlay {
+  padding: 6rem 10rem 8rem 10rem;
   background-color: $bg;
-  border-radius: 6rem;
   border-left: 4rem solid #8a94a3;
   color: $text;
   font-size: 12.5rem;
-  pointer-events: none;
 }
 
 .overlayTitle {

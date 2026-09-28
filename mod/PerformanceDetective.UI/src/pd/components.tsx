@@ -2,6 +2,7 @@ import { FloatingButton, Panel, Button, Scrollable } from "cs2/ui";
 import { useValue } from "cs2/api";
 import classNames from "classnames";
 import { useState } from "react";
+import { loadPosition, useRememberPosition } from "./position";
 import icon from "./icon.svg";
 import styles from "./detective.module.scss";
 import {
@@ -44,7 +45,9 @@ const MINI_SECONDS = 60;
 /** Mini monitor: simulation speed against the ceiling that the frame rate allows, over the last minute. */
 export const Overlay = () => {
   const s = useDetective();
-  if (!s || !s.overlay || !s.inSession) return null;
+  const shown = !!s && s.overlay && s.inSession;
+  useRememberPosition("monitor", styles.monitorPanel, shown);
+  if (!s || !shown) return null;
   const h = s.history;
   const speed = h ? h.speed.slice(-MINI_SECONDS) : [];
   const fps = h ? h.fps.slice(-MINI_SECONDS) : [];
@@ -58,12 +61,11 @@ export const Overlay = () => {
   const delta = now != null && before != null ? now - before : null;
   const top = Math.max(100, ...speed.map(v => v ?? 0), ...ceilings.map(v => v ?? 0));
   const scale = Math.min(top, 150); // keep the lower range readable; ceilings above the top are clipped
+  // A draggable game panel (drag the title bar); the close button turns the monitor off.
   return (
+    <Panel draggable initialPosition={loadPosition("monitor", { x: 0.99, y: 0.06 })} className={styles.monitorPanel}
+      header={<span>Simulation · {fmt(s.selectedSpeed, 0)}× · last {MINI_SECONDS} s</span>} onClose={() => command("overlay:0")}>
     <div className={styles.overlay} style={{ borderLeftColor: stabilityColor(s.stability) }}>
-      <div className={classNames(styles.row, styles.spaceBetween)}>
-        <span className={styles.overlayTitle}>Simulation</span>
-        <span className={styles.overlayTitle}>{fmt(s.selectedSpeed, 0)}× · last {MINI_SECONDS} s</span>
-      </div>
       <div className={styles.overlayBig}>
         <div className={styles.overlayNumber} style={{ color: speedColor(s.speedPct) }}>{fmt(s.speedPct)}%</div>
         {delta != null && Math.abs(delta) >= 0.5 && (
@@ -88,6 +90,7 @@ export const Overlay = () => {
       </div>
       <div className={styles.overlayLine} style={{ color: fpsLimited ? "#f0b429" : undefined }}>{title}</div>
     </div>
+    </Panel>
   );
 };
 
@@ -96,9 +99,12 @@ export const Overlay = () => {
 export const DetectivePanel = () => {
   const open = useValue(panelOpen$);
   const s = useDetective();
+  useRememberPosition("panel", styles.panel, open);
   if (!open) return null;
   return (
     <Panel
+      draggable
+      initialPosition={loadPosition("panel", { x: 0.03, y: 0.07 })}
       className={styles.panel}
       header={<span>Performance Detective</span>}
       onClose={() => command("panel:0")}
