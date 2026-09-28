@@ -12,3 +12,15 @@ Tested with PresentMon 2.6.0:
 Not the `.msi` — that installs the full PresentMon GUI overlay, which is not needed.
 
 The exe is git-ignored (third-party binary).
+
+## SaveInspector (which mods one save uses)
+
+Double-click `SaveInspector.cmd` (or run `SaveInspector.ps1`), pick a save, and it lists:
+
+* asset packs you have enabled that this save does **not** use (largest first, with any other city that uses them),
+* mods the save uses, and mods it needs that are not enabled (missing content),
+* code mods, which a save does not record and are never suggested.
+
+It reads only the small metadata entry inside the save; the game does not need to be running and nothing is changed.
+Results go to the Desktop (`cs2_save_mods_<city>.csv`, `cs2_save_unused_<city>.txt`); the unused list is also copied to
+the clipboard for building a playset in Skyve. `AssetAudit.ps1` does the same check across all saves at once.
