@@ -30,3 +30,8 @@ the clipboard for building a playset in Skyve. `AssetAudit.ps1` does the same ch
 `LeanPlayset.ps1 -Save <path to .cok>` writes `<City> lean playset.json` (Skyve's playset export format) to the Desktop:
 your currently enabled mods minus the asset packs that save does not use. Code mods and packs under 2 MB are always kept.
 Import it in Skyve (Playsets → Import), activate it and start the game from Skyve. Read-only for the game.
+
+## SaveModList (just the mods one save uses)
+
+`SaveModList.ps1 -Save <path to .cok>` writes `<save> - mods used by save` as .txt (ID tab name), .csv and .json (Skyve playset
+format) to the Desktop. Only what the save records: mods whose content it contains. Code-only mods are not recorded by saves.
